@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.awesomescreenshot.com)",
+      "Bash(find:*)",
+      "Skill(update-config)"
+    ]
+  }
+}

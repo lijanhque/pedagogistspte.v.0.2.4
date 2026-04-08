@@ -1,0 +1,24 @@
+{
+  "name": "Next.js (dev)",
+  "build": {
+    "dockerfile": "Dockerfile.dev",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "figma.figma-vscode-extension"
+      ]
+    }
+  },
+  "postCreateCommand": "npm install -g pnpm && pnpm install",
+  "shutdownAction": "stopContainer"
+}

@@ -1,0 +1,32 @@
+node_modules
+.next/
+out/
+build/
+.vercel
+.pnpm-store/
+
+# environment variables
+.env*.local
+.env
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# system files
+.DS_Store
+Thumbs.db
+
+# Sentry Config File
+.env.sentry-build-plugin
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Vitest coverage
+/coverage/
