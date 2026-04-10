@@ -10,9 +10,6 @@ import { redirect } from "next/navigation";
 import { getAllUserAttempts } from "@/lib/db/queries/pte-scoring";
 import { getUserDashboardStats } from "@/lib/pte/practice";
 import { PTEDashboard } from "@/components/pte/app-dashboard";
-import { useCopilotReadable } from "@copilotkit/react-core";
-
-import { CopilotPopup } from "@copilotkit/react-ui";
 export default async function DashboardPage() {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -83,24 +80,11 @@ export default async function DashboardPage() {
   };
 
   return (
-    <>
-      <PTEDashboard
-        user={userProfile || session.user}
-        examDate={dashboardStats.examDate || userProfile?.examDate || null}
-        chartData={chartData}
-        stats={stats}
-      />
-
-      <CopilotPopup
-        instructions={prompt}
-        defaultOpen
-        labels={{
-          title: "✨ Incident Report Assistant",
-          initial: [
-            "I'm an AI assistant built for guiding you through filing incident reports. How can I help?",
-          ],
-        }}
-      />
-    </>
+    <PTEDashboard
+      user={userProfile || session.user}
+      examDate={dashboardStats.examDate || userProfile?.examDate || null}
+      chartData={chartData}
+      stats={stats}
+    />
   );
 }

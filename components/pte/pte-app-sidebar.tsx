@@ -5,11 +5,9 @@ import Link from "next/link";
 import {
   BookOpen,
   Bot,
-  Frame,
   PieChart,
   SquareTerminal,
   Home,
-  Trophy,
   History,
   Headphones,
   Mic,
@@ -68,16 +66,6 @@ const navMain = [
         icon: Headphones,
       },
     ],
-  },
-  {
-    title: "Mock Tests",
-    url: "/academic/mock-tests",
-    icon: Trophy,
-  },
-  {
-    title: "Sectional Tests",
-    url: "/academic/sectional-test",
-    icon: Frame,
   },
   {
     title: "Courses",

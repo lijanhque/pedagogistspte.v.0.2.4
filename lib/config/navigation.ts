@@ -197,23 +197,6 @@ export const pteSidebarNav: NavSection[] = [
       },
     ],
   },
-  {
-    title: 'Tests',
-    items: [
-      {
-        title: 'Mock Tests',
-        href: routes.academic.mockTests.root,
-        icon: 'ClipboardList',
-        description: 'Full-length practice tests',
-      },
-      {
-        title: 'Sectional Tests',
-        href: routes.academic.sectionalTest.root,
-        icon: 'Layers',
-        description: 'Focus on specific sections',
-      },
-    ],
-  },
 ]
 
 // User dropdown menu items
