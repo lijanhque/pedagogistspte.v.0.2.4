@@ -146,7 +146,7 @@
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.23.26",
     "jsonrepair": "^3.13.1",
-    "langsmith": "^0.4.6",
+    "langsmith": "^0.5.0",
     "lucide-react": "^0.562.0",
     "mime-types": "^3.0.2",
     "motion": "^12.23.26",
