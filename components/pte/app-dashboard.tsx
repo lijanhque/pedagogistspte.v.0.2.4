@@ -16,11 +16,8 @@ import {
 } from "recharts";
 import {
   BookOpen,
-  FileText,
-  Layout,
   Mic,
   Play,
-  Trophy,
   Zap,
   CheckCircle2,
   Target,
@@ -234,7 +231,7 @@ export function PTEDashboard({
               </h2>
               <p className="text-lg text-muted-foreground leading-relaxed">
                 Unlock the full power of Artificial Intelligence. Detailed
-                scoring, advanced vocal analysis, and unlimited mock tests
+                scoring, advanced vocal analysis, and unlimited practice
                 tailored to your growth.
               </p>
             </div>
@@ -278,7 +275,7 @@ export function PTEDashboard({
       <motion.div variants={item} className="grid gap-6 md:grid-cols-3">
         {[
           {
-            href: "/pte/practice",
+            href: "/academic/practice",
             title: "PTE Practice",
             count: "5000+ Questions",
             desc: "Sharpen your skills with real-world scenarios.",
@@ -286,19 +283,19 @@ export function PTEDashboard({
             color: "from-blue-500/10 to-transparent",
           },
           {
-            href: "/pte/mock-tests",
-            title: "Mock Tests",
-            count: "200+ Exams",
-            desc: "Simulate the pressure of the actual PTE hall.",
-            icon: FileText,
+            href: "/academic/analytics",
+            title: "Analytics",
+            count: "Track Progress",
+            desc: "Monitor your scores and identify areas to improve.",
+            icon: Target,
             color: "from-indigo-500/10 to-transparent",
           },
           {
-            href: "/pte/templates",
-            title: "Smart Templates",
-            count: "20+ Blueprints",
-            desc: "The proven structures for 79+ scores.",
-            icon: Layout,
+            href: "/academic/practice-attempts",
+            title: "Practice History",
+            count: "All Attempts",
+            desc: "Review past attempts and learn from your mistakes.",
+            icon: BookMarked,
             color: "from-accent-500/10 to-transparent",
           },
         ].map((card) => (
@@ -328,17 +325,17 @@ export function PTEDashboard({
         ))}
       </motion.div>
 
-      {/* AI Mock Test Banner */}
+      {/* AI Practice Banner */}
       <motion.div variants={item}>
         <Card className="border-orange-200 bg-gradient-to-r from-orange-50 to-white dark:from-orange-950/30 dark:to-background dark:border-orange-900/50">
           <CardContent className="flex flex-col items-center justify-between gap-6 p-6 md:flex-row">
             <div className="flex items-center gap-4">
               <div className="rounded-full bg-orange-100 p-3 dark:bg-orange-900/30">
-                <Trophy className="h-8 w-8 text-orange-600 dark:text-orange-400" />
+                <Zap className="h-8 w-8 text-orange-600 dark:text-orange-400" />
               </div>
               <div>
                 <h3 className="text-lg font-bold text-foreground">
-                  Take free Mock Test with AI scoring
+                  Practice with AI-Powered Scoring
                 </h3>
                 <div className="mt-2 flex flex-wrap gap-4 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
@@ -347,19 +344,21 @@ export function PTEDashboard({
                   </span>
                   <span className="flex items-center gap-1">
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    Total 19-21 questions
+                    All 4 PTE sections covered
                   </span>
                   <span className="flex items-center gap-1">
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    Estimated time 30+ minutes
+                    5000+ practice questions
                   </span>
                 </div>
               </div>
             </div>
-            <Button className="bg-foreground text-background hover:bg-foreground/90">
-              Try Mini Mock Test
-              <Play className="ml-2 h-4 w-4" />
-            </Button>
+            <Link href="/academic/practice">
+              <Button className="bg-foreground text-background hover:bg-foreground/90">
+                Start Practicing
+                <Play className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </motion.div>
@@ -561,37 +560,37 @@ export function PTEDashboard({
             </CardHeader>
             <CardContent className="grid gap-4">
               <Link
-                href="/pte/vocab-books"
+                href="/academic/practice/speaking"
                 className="group flex items-center gap-3 rounded-xl border p-3 transition-all hover:border-green-200 hover:bg-green-50 dark:hover:border-green-900 dark:hover:bg-green-950/30"
               >
                 <div className="rounded-lg bg-green-100 p-2 text-green-600 dark:bg-green-900/30 dark:text-green-400">
-                  <BookMarked className="h-5 w-5" />
-                </div>
-                <div className="flex-1">
-                  <div className="font-medium text-foreground">Vocab Books</div>
-                  <div className="text-xs text-muted-foreground">
-                    Boost your vocabulary skills
-                  </div>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-              </Link>
-              <Link
-                href="/pte/shadowing"
-                className="group flex items-center gap-3 rounded-xl border p-3 transition-all hover:border-blue-200 hover:bg-blue-50 dark:hover:border-blue-900 dark:hover:bg-blue-950/30"
-              >
-                <div className="rounded-lg bg-blue-100 p-2 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
                   <Mic className="h-5 w-5" />
                 </div>
                 <div className="flex-1">
-                  <div className="font-medium text-foreground">Shadowing</div>
+                  <div className="font-medium text-foreground">Speaking Practice</div>
                   <div className="text-xs text-muted-foreground">
-                    Improve pronunciation accuracy
+                    Read Aloud, Repeat Sentence & more
                   </div>
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
               </Link>
               <Link
-                href="/pte/mp3"
+                href="/academic/practice/writing"
+                className="group flex items-center gap-3 rounded-xl border p-3 transition-all hover:border-blue-200 hover:bg-blue-50 dark:hover:border-blue-900 dark:hover:bg-blue-950/30"
+              >
+                <div className="rounded-lg bg-blue-100 p-2 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                  <BookOpen className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium text-foreground">Writing Practice</div>
+                  <div className="text-xs text-muted-foreground">
+                    Summarize Written Text & Write Essay
+                  </div>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+              </Link>
+              <Link
+                href="/academic/practice/listening"
                 className="group flex items-center gap-3 rounded-xl border p-3 transition-all hover:border-purple-200 hover:bg-purple-50 dark:hover:border-purple-900 dark:hover:bg-purple-950/30"
               >
                 <div className="rounded-lg bg-purple-100 p-2 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
@@ -599,10 +598,10 @@ export function PTEDashboard({
                 </div>
                 <div className="flex-1">
                   <div className="font-medium text-foreground">
-                    Audio Resources
+                    Listening Practice
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    Practice listening with audio
+                    Dictation, Summarize Spoken Text & more
                   </div>
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
