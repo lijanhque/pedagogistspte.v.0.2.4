@@ -239,8 +239,8 @@ importers:
         specifier: ^3.13.1
         version: 3.13.1
       langsmith:
-        specifier: ^0.5.0
-        version: 0.5.0(@opentelemetry/api@1.9.0)(@opentelemetry/exporter-trace-otlp-proto@0.203.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@5.23.2(ws@8.20.0)(zod@4.3.5))
+        specifier: ^0.5.18
+        version: 0.5.18(@opentelemetry/api@1.9.0)(@opentelemetry/exporter-trace-otlp-proto@0.203.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@5.23.2(ws@8.20.0)(zod@4.3.5))(ws@8.20.0)
       lucide-react:
         specifier: ^0.562.0
         version: 0.562.0(react@19.2.3)
@@ -10040,23 +10040,6 @@ packages:
       openai:
         optional: true
 
-  langsmith@0.5.0:
-    resolution: {integrity: sha512-5U9Ar/wAu5vyTBBImvMLrM9sjynHzN703oLHScEqJaXWE6gm+uti0rWDryQZ6ObnuqSNa4IOUudYej9X6VNEwg==}
-    peerDependencies:
-      '@opentelemetry/api': '*'
-      '@opentelemetry/exporter-trace-otlp-proto': '*'
-      '@opentelemetry/sdk-trace-base': '*'
-      openai: '*'
-    peerDependenciesMeta:
-      '@opentelemetry/api':
-        optional: true
-      '@opentelemetry/exporter-trace-otlp-proto':
-        optional: true
-      '@opentelemetry/sdk-trace-base':
-        optional: true
-      openai:
-        optional: true
-
   langsmith@0.5.18:
     resolution: {integrity: sha512-3zuZUWffTHQ+73EAwnodADtf534VNEZUpXr9jC12qyG8/IQuJET7PRsCpTb9wX2lmBspakwLUpqpj3tNm/0bVA==}
     peerDependencies:
@@ -16980,7 +16963,7 @@ snapshots:
       signal-exit: 3.0.7
       slice-ansi: 7.1.2
       stack-utils: 2.0.6
-      string-width: 8.1.0
+      string-width: 8.2.0
       type-fest: 4.41.0
       wrap-ansi: 9.0.2
       ws: 8.20.0
@@ -25297,20 +25280,6 @@ snapshots:
       vscode-uri: 3.1.0
 
   langsmith@0.3.87(@opentelemetry/api@1.9.0)(@opentelemetry/exporter-trace-otlp-proto@0.203.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@5.23.2(ws@8.20.0)(zod@4.3.5)):
-    dependencies:
-      '@types/uuid': 10.0.0
-      chalk: 4.1.2
-      console-table-printer: 2.15.0
-      p-queue: 6.6.2
-      semver: 7.7.4
-      uuid: 10.0.0
-    optionalDependencies:
-      '@opentelemetry/api': 1.9.0
-      '@opentelemetry/exporter-trace-otlp-proto': 0.203.0(@opentelemetry/api@1.9.0)
-      '@opentelemetry/sdk-trace-base': 2.2.0(@opentelemetry/api@1.9.0)
-      openai: 5.23.2(ws@8.20.0)(zod@4.3.5)
-
-  langsmith@0.5.0(@opentelemetry/api@1.9.0)(@opentelemetry/exporter-trace-otlp-proto@0.203.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.2.0(@opentelemetry/api@1.9.0))(openai@5.23.2(ws@8.20.0)(zod@4.3.5)):
     dependencies:
       '@types/uuid': 10.0.0
       chalk: 4.1.2
