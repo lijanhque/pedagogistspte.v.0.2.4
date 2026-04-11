@@ -10,13 +10,27 @@ import {
     CheckCircle2,
     Volume2,
     Loader2,
+    Upload,
+    Brain,
+    Clock,
 } from "lucide-react";
 import { useBeep } from "@/hooks/useBeep";
 import { toast } from "@/hooks/use-toast";
 import { QuestionType, SpeakingFeedbackData, SpeakingQuestion } from "@/lib/types";
-import { scoreReadAloudAttempt, scoreSpeakingAttempt } from "@/app/actions/pte";
+import { uploadSpeakingAudio, scoreSpeakingFromUrl } from "@/app/actions/pte";
 import { ScoreDisplay } from "@/components/pte/speaking/score-display";
 import { SpeechInput } from "@/components/ai-elements/speech-input";
+
+type SpeakingStatus =
+    | "idle"
+    | "playing_audio"
+    | "preparing"
+    | "recording"
+    | "recorded"
+    | "uploading"
+    | "submitted"
+    | "scoring"
+    | "completed";
 
 interface SpeakingPracticeClientProps {
     question: SpeakingQuestion;
@@ -49,6 +63,8 @@ export function SpeakingPracticeClient({
                 return { prep: 3, record: 10 };
             case "respond_to_situation":
                 return { prep: 20, record: 40 };
+            case "summarize_group_discussion":
+                return { prep: 10, record: 40 };
             default:
                 return { prep: 10, record: 40 };
         }
@@ -57,18 +73,19 @@ export function SpeakingPracticeClient({
     const timings = getTimings();
     const recordDuration = timeLimit || timings.record;
 
-    const [status, setStatus] = useState<
-        "idle" | "playing_audio" | "preparing" | "recording" | "completed"
-    >("idle");
+    const [status, setStatus] = useState<SpeakingStatus>("idle");
     const [prepTime, setPrepTime] = useState(timings.prep);
+    const [recordTime, setRecordTime] = useState(recordDuration);
     const [feedback, setFeedback] = useState<SpeakingFeedbackData | null>(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
     const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+    const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
     const [transcript, setTranscript] = useState("");
     const [isRecordingActive, setIsRecordingActive] = useState(false);
+    const [attemptNumber, setAttemptNumber] = useState<number | null>(null);
 
     const prepTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const recordTimerRef = useRef<NodeJS.Timeout | null>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
     const { playBeep } = useBeep();
     const speechInputRef = useRef<HTMLDivElement>(null);
@@ -77,6 +94,7 @@ export function SpeakingPracticeClient({
     useEffect(() => {
         return () => {
             if (prepTimerRef.current) clearInterval(prepTimerRef.current);
+            if (recordTimerRef.current) clearInterval(recordTimerRef.current);
         };
     }, []);
 
@@ -90,21 +108,38 @@ export function SpeakingPracticeClient({
         }
     }, [autoStart]);
 
+    const getTypeKey = (): QuestionType => {
+        switch (questionType) {
+            case "read_aloud": return QuestionType.READ_ALOUD;
+            case "repeat_sentence": return QuestionType.REPEAT_SENTENCE;
+            case "describe_image": return QuestionType.DESCRIBE_IMAGE;
+            case "retell_lecture": return QuestionType.RE_TELL_LECTURE;
+            case "answer_short_question": return QuestionType.ANSWER_SHORT_QUESTION;
+            case "respond_to_situation": return QuestionType.RESPOND_TO_A_SITUATION;
+            case "summarize_group_discussion": return QuestionType.SUMMARIZE_GROUP_DISCUSSION;
+            default: return QuestionType.READ_ALOUD;
+        }
+    };
+
     const startSession = () => {
         // Reset state
         setPrepTime(timings.prep);
+        setRecordTime(recordDuration);
         setFeedback(null);
         setRecordedBlob(null);
         setRecordedUrl(null);
+        setUploadedAudioUrl(null);
         setTranscript("");
         setIsRecordingActive(false);
+        setAttemptNumber(null);
 
         // Flow depends on question type
         if (
             audioUrl &&
             (questionType === "repeat_sentence" ||
                 questionType === "retell_lecture" ||
-                questionType === "answer_short_question")
+                questionType === "answer_short_question" ||
+                questionType === "summarize_group_discussion")
         ) {
             setStatus("playing_audio");
             if (audioRef.current) {
@@ -144,6 +179,18 @@ export function SpeakingPracticeClient({
         setTimeout(() => {
             setStatus("recording");
             setIsRecordingActive(true);
+            setRecordTime(recordDuration);
+            // Start recording countdown
+            if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+            recordTimerRef.current = setInterval(() => {
+                setRecordTime((prev) => {
+                    if (prev <= 1) {
+                        if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
             // Trigger click on SpeechInput to start recording
             speechInputRef.current?.querySelector('button')?.click();
         }, 300);
@@ -157,10 +204,13 @@ export function SpeakingPracticeClient({
         setFeedback(null);
         setRecordedBlob(null);
         setRecordedUrl(null);
+        setUploadedAudioUrl(null);
         setTranscript("");
         setStatus("idle");
         setPrepTime(timings.prep);
+        setRecordTime(recordDuration);
         setIsRecordingActive(false);
+        setAttemptNumber(null);
     };
 
     const handleTranscriptionChange = (text: string) => {
@@ -172,79 +222,70 @@ export function SpeakingPracticeClient({
         setRecordedBlob(audioBlob);
         const url = URL.createObjectURL(audioBlob);
         setRecordedUrl(url);
-        setStatus("completed");
+        setStatus("recorded");
         setIsRecordingActive(false);
-
-        // Fallback transcription for browsers without Web Speech API
-        // This example uses a generic placeholder - replace with your actual transcription service
-        try {
-            const formData = new FormData();
-            formData.append("file", audioBlob, "audio.webm");
-
-            const response = await fetch("/api/transcribe", {
-                method: "POST",
-                body: formData,
-            });
-
-            if (!response.ok) {
-                throw new Error("Transcription failed");
-            }
-
-            const data = await response.json();
-            return data.text || "";
-        } catch (error) {
-            console.error("Transcription error:", error);
-            // Return empty string if transcription fails
-            return "";
-        }
+        if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+        return "";
     };
 
-    const handleSubmit = async () => {
+    // Step 1: Upload audio to Vercel Blob
+    const handleUpload = async () => {
         if (!recordedBlob) return;
-        setIsSubmitting(true);
+        setStatus("uploading");
         try {
             const file = new File([recordedBlob], "recording.webm", {
                 type: "audio/webm",
             });
-            let result;
-            let typeKey: QuestionType;
-
-            switch (questionType) {
-                case "read_aloud": typeKey = QuestionType.READ_ALOUD; break;
-                case "repeat_sentence": typeKey = QuestionType.REPEAT_SENTENCE; break;
-                case "describe_image": typeKey = QuestionType.DESCRIBE_IMAGE; break;
-                case "retell_lecture": typeKey = QuestionType.RE_TELL_LECTURE; break;
-                case "answer_short_question": typeKey = QuestionType.ANSWER_SHORT_QUESTION; break;
-                case "respond_to_situation": typeKey = QuestionType.RESPOND_TO_A_SITUATION; break;
-                default:
-                    typeKey = QuestionType.READ_ALOUD;
-            }
-
-            if (questionType === "read_aloud") {
-                result = await scoreReadAloudAttempt(file, content, questionId);
+            const result = await uploadSpeakingAudio(file, questionId, questionType);
+            if (result.success && result.audioUrl) {
+                setUploadedAudioUrl(result.audioUrl);
+                setRecordedUrl(result.audioUrl);
+                setStatus("submitted");
+                toast({
+                    title: "Recording submitted successfully!",
+                    description: "Your audio has been saved. Click 'AI Scoring' to get feedback.",
+                });
             } else {
-                result = await scoreSpeakingAttempt(typeKey, file, content, questionId);
+                toast({
+                    title: "Upload failed",
+                    description: result.error || "Failed to upload audio",
+                    variant: "destructive",
+                });
+                setStatus("recorded");
             }
+        } catch (error) {
+            console.error("Upload error:", error);
+            toast({ title: "Upload failed", variant: "destructive" });
+            setStatus("recorded");
+        }
+    };
 
+    // Step 2: Score using AI (from already-uploaded URL)
+    const handleAIScoring = async () => {
+        if (!uploadedAudioUrl) return;
+        setStatus("scoring");
+        try {
+            const typeKey = getTypeKey();
+            const result = await scoreSpeakingFromUrl(typeKey, uploadedAudioUrl, content, questionId);
             if (result.success && result.feedback) {
                 setFeedback(result.feedback);
-                // Use the persistent URL from the server
-                if (result.audioUrl) {
-                    setRecordedUrl(result.audioUrl);
+                if (result.attemptNumber) {
+                    setAttemptNumber(result.attemptNumber);
                 }
+                setStatus("completed");
                 toast({ title: "Scoring complete!" });
             } else {
                 toast({
                     title: "Scoring failed",
                     description: result.error || "Failed to score attempt",
-                    variant: "destructive"
+                    variant: "destructive",
                 });
+                setStatus("submitted");
             }
         } catch (error) {
-            console.error(error);
-            toast({ title: "Submission failed", variant: "destructive" });
-        } finally {
-            setIsSubmitting(false);
+            console.error("Scoring error:", error);
+            toast({ title: "Scoring failed", variant: "destructive" });
+            setStatus("submitted");
         }
     };
 
@@ -281,8 +322,6 @@ export function SpeakingPracticeClient({
         return null;
     };
 
-
-
     return (
         <div className="space-y-8">
             {audioUrl && <audio ref={audioRef} src={audioUrl} onEnded={handleAudioEnded} className="hidden" />}
@@ -290,6 +329,7 @@ export function SpeakingPracticeClient({
             {renderQuestionContent()}
 
             <div className="bg-gray-50 dark:bg-white/[0.02] border border-gray-100 dark:border-white/5 rounded-xl p-6 flex flex-col items-center gap-4 transition-all min-h-[250px] justify-center">
+                {/* IDLE: Start Practice */}
                 {status === "idle" && (
                     <div className="text-center py-4">
                         <Button
@@ -302,20 +342,22 @@ export function SpeakingPracticeClient({
                     </div>
                 )}
 
+                {/* PREPARING: Countdown */}
                 {status === "preparing" && (
                     <div className="text-center space-y-4 w-full max-w-md animate-in fade-in zoom-in-95 duration-300">
                         <div className="flex justify-between items-end">
                             <span className="text-sm font-medium text-amber-600 dark:text-amber-400 uppercase tracking-widest">Preparing...</span>
                             <span className="text-xs text-muted-foreground">Starting in {prepTime}s</span>
                         </div>
-                        <Progress value={(1 - prepTime / timings.prep) * 100} className="h-3 bg-amber-100 dark:bg-amber-900/20" indicatorClassName="bg-amber-500" />
+                        <Progress value={(1 - prepTime / timings.prep) * 100} className="h-3 bg-amber-100 dark:bg-amber-900/20" />
                         <div className="text-6xl font-mono font-bold text-amber-500 tabular-nums">{prepTime}</div>
                         <p className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-900/10 py-2 px-4 rounded-full inline-block">Speak after the beep</p>
                     </div>
                 )}
 
+                {/* RECORDING: Active recording with countdown */}
                 {status === "recording" && (
-                    <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in-95">
+                    <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in-95 w-full max-w-2xl">
                         <div className="text-center space-y-2">
                             <p className="text-sm font-medium text-red-500 uppercase tracking-widest flex items-center justify-center gap-2">
                                 <span className="relative flex h-3 w-3">
@@ -324,7 +366,16 @@ export function SpeakingPracticeClient({
                                 </span>
                                 Recording
                             </p>
+                            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                                <Clock className="size-4" />
+                                <span className="text-lg font-mono tabular-nums">{recordTime}s remaining</span>
+                            </div>
                         </div>
+
+                        <Progress
+                            value={(1 - recordTime / recordDuration) * 100}
+                            className="h-2 w-full max-w-sm bg-red-100 dark:bg-red-900/20"
+                        />
 
                         <div ref={speechInputRef}>
                             <SpeechInput
@@ -339,7 +390,7 @@ export function SpeakingPracticeClient({
                         </div>
 
                         {transcript && (
-                            <div className="max-w-2xl rounded-lg border bg-card p-4 text-sm">
+                            <div className="max-w-2xl w-full rounded-lg border bg-card p-4 text-sm">
                                 <p className="text-muted-foreground mb-2">
                                     <strong>Live Transcript:</strong>
                                 </p>
@@ -349,21 +400,17 @@ export function SpeakingPracticeClient({
                     </div>
                 )}
 
-                {status === "completed" && !feedback && (
-                    <div className="text-center space-y-6 w-full max-w-2xl">
+                {/* RECORDED: Recording done, show Submit Test button */}
+                {status === "recorded" && (
+                    <div className="text-center space-y-6 w-full max-w-2xl animate-in fade-in zoom-in-95 duration-300">
                         <div className="text-xl font-medium text-green-600 dark:text-green-400 flex items-center gap-2 justify-center">
                             <CheckCircle2 className="size-6" /> Recording Complete
                         </div>
 
                         {recordedUrl && (
                             <div className="space-y-4 w-full bg-white dark:bg-black/20 p-6 rounded-lg border border-gray-200 dark:border-white/10 text-left">
-                                {/* biome-ignore lint/a11y/useMediaCaption: <explanation> */}
-                                <audio
-                                    src={recordedUrl}
-                                    controls
-                                    className="w-full mb-4"
-                                />
-
+                                {/* biome-ignore lint/a11y/useMediaCaption: audio playback */}
+                                <audio src={recordedUrl} controls className="w-full mb-4" />
                                 {transcript && (
                                     <div className="bg-muted p-4 rounded-md text-sm">
                                         <h4 className="font-semibold text-xs uppercase text-muted-foreground mb-2">Transcript</h4>
@@ -379,20 +426,83 @@ export function SpeakingPracticeClient({
                             </Button>
                             <Button
                                 size="lg"
-                                onClick={handleSubmit}
-                                disabled={isSubmitting}
+                                onClick={handleUpload}
                                 className="rounded-full h-12 px-8 bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-900/20"
                             >
-                                {isSubmitting ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-                                {isSubmitting ? "Scoring..." : "Submit Answer"}
+                                <Upload className="size-4 mr-2" /> Submit Test
                             </Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* UPLOADING: Upload in progress */}
+                {status === "uploading" && (
+                    <div className="text-center space-y-4 animate-in fade-in zoom-in-95 duration-300">
+                        <div className="bg-blue-100 dark:bg-blue-900/30 p-4 rounded-full inline-flex">
+                            <Loader2 className="size-8 text-blue-600 animate-spin" />
+                        </div>
+                        <p className="text-lg font-medium text-blue-600 dark:text-blue-400">Uploading your recording...</p>
+                        <p className="text-sm text-muted-foreground">Please wait while we save your audio</p>
+                    </div>
+                )}
+
+                {/* SUBMITTED: Upload success, show AI Scoring button */}
+                {status === "submitted" && (
+                    <div className="text-center space-y-6 w-full max-w-2xl animate-in fade-in zoom-in-95 duration-300">
+                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-6">
+                            <div className="flex items-center justify-center gap-2 mb-2">
+                                <CheckCircle2 className="size-6 text-green-600" />
+                                <p className="text-lg font-semibold text-green-700 dark:text-green-400">
+                                    Recording Submitted Successfully!
+                                </p>
+                            </div>
+                            <p className="text-sm text-green-600 dark:text-green-500">
+                                Your audio has been saved. Click below to get AI-powered feedback on your response.
+                            </p>
+                        </div>
+
+                        {recordedUrl && (
+                            <div className="w-full bg-white dark:bg-black/20 p-4 rounded-lg border border-gray-200 dark:border-white/10">
+                                {/* biome-ignore lint/a11y/useMediaCaption: audio playback */}
+                                <audio src={recordedUrl} controls className="w-full" />
+                            </div>
+                        )}
+
+                        <Button
+                            size="lg"
+                            onClick={handleAIScoring}
+                            className="rounded-full h-14 px-10 bg-primary hover:bg-primary/90 text-lg shadow-xl hover:scale-105 transition-all gap-2"
+                        >
+                            <Brain className="size-5" /> AI Scoring
+                        </Button>
+                    </div>
+                )}
+
+                {/* SCORING: AI scoring in progress */}
+                {status === "scoring" && (
+                    <div className="text-center space-y-4 animate-in fade-in zoom-in-95 duration-300">
+                        <div className="bg-purple-100 dark:bg-purple-900/30 p-4 rounded-full inline-flex">
+                            <Brain className="size-8 text-purple-600 animate-pulse" />
+                        </div>
+                        <p className="text-lg font-medium text-purple-600 dark:text-purple-400">AI is analyzing your response...</p>
+                        <p className="text-sm text-muted-foreground">Evaluating pronunciation, fluency, and content</p>
+                        <div className="flex justify-center">
+                            <Loader2 className="size-5 animate-spin text-muted-foreground" />
                         </div>
                     </div>
                 )}
             </div>
 
-            {feedback && (
+            {/* COMPLETED: Show feedback */}
+            {status === "completed" && feedback && (
                 <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+                    {attemptNumber && (
+                        <div className="text-center mb-4">
+                            <span className="inline-flex items-center gap-1 text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-3 py-1 rounded-full">
+                                Attempt #{attemptNumber}
+                            </span>
+                        </div>
+                    )}
                     <ScoreDisplay
                         score={{
                             overallScore: feedback.overallScore,

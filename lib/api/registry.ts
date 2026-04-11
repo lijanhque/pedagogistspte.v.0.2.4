@@ -170,26 +170,6 @@ export const API_REGISTRY: APIEndpoint[] = [
         },
         status: "stable",
     },
-    {
-        path: "/api/pte/upload",
-        method: "POST",
-        description: "Upload audio/files for PTE practice",
-        category: "Uploads",
-        requiresAuth: true,
-        requestBody: {
-            type: "FormData",
-            example: "audio file (multipart/form-data)",
-        },
-        response: {
-            type: "object",
-            example: {
-                url: "https://storage.../audio.mp3",
-                fileId: "file123",
-            },
-        },
-        status: "stable",
-    },
-
     // Mock Test APIs
     {
         path: "/api/mock-test/start",
@@ -697,26 +677,6 @@ export const API_REGISTRY: APIEndpoint[] = [
         },
         status: "stable",
     },
-    {
-        path: "/api/uploads/general",
-        method: "POST",
-        description: "Upload general files (images, documents)",
-        category: "Uploads",
-        requiresAuth: true,
-        requestBody: {
-            type: "FormData",
-            example: "file (multipart/form-data)",
-        },
-        response: {
-            type: "object",
-            example: {
-                url: "https://storage.../file.pdf",
-                fileId: "file123",
-            },
-        },
-        status: "stable",
-    },
-
     // AI Assistant APIs
     {
         path: "/api/ai-assistant",

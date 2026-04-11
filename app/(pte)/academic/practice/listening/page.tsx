@@ -15,7 +15,7 @@ const listeningTypes = [
     questionCount: 45,
   },
   {
-    id: "multiple_choice_multiple",
+    id: "listening_mc_multiple",
     name: "Multiple Choice (Multiple)",
     description: "Listen to a recording and answer multiple-choice question",
     time: "40-90 sec",
@@ -23,7 +23,7 @@ const listeningTypes = [
     questionCount: 40,
   },
   {
-    id: "fill_blanks",
+    id: "listening_fill_blanks",
     name: "Fill in the Blanks",
     description:
       "Listen to a recording and type the missing words in transcript",
@@ -40,7 +40,7 @@ const listeningTypes = [
     questionCount: 25,
   },
   {
-    id: "multiple_choice_single",
+    id: "listening_mc_single",
     name: "Multiple Choice (Single)",
     description: "Listen to a recording and answer single-choice question",
     time: "30-60 sec",
