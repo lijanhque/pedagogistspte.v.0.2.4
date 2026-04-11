@@ -10,19 +10,18 @@ const writingTypes = [
   {
     id: "summarize_written_text",
     name: "Summarize Written Text",
-    description: "Read a passage and write a one-sentence summary (5-75 words)",
+    description: "...",
     time: "10 min",
     aiScored: true,
   },
   {
-    id: "write_essay",
+    id: "essay",
     name: "Write Essay",
-    description: "Write an essay of 200-300 words on a given topic",
+    description: "...",
     time: "20 min",
     aiScored: true,
   },
 ];
-
 export default async function WritingPracticePage() {
   const counts = await getPteQuestionCounts();
 
