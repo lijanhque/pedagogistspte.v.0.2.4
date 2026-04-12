@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
+  CardHeader,
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Play, Pause, Volume2, Ear } from "lucide-react";
+import { Loader2, Play, Pause, Volume2, Ear, Send, RotateCcw, ArrowLeft, Headphones, Check } from "lucide-react";
 import { QuestionType, AIFeedbackData } from "@/lib/types";
 import { scoreListeningAttempt } from "@/app/actions/pte";
 import { CountdownTimer } from "@/components/pte/timers/CountdownTimer";
@@ -24,8 +26,8 @@ interface ListeningPracticeClientProps {
   questionType: string | QuestionType;
   content: string;
   audioUrl?: string;
-  transcript?: string; // For Highlight Incorrect Words
-  options?: string[]; // For MCQs
+  transcript?: string;
+  options?: string[];
   timeLimit?: number;
 }
 
@@ -36,7 +38,7 @@ export function ListeningPracticeClient({
   audioUrl,
   transcript,
   options = [],
-  timeLimit = 600, // Default 10 mins usually
+  timeLimit = 600,
 }: ListeningPracticeClientProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,6 +48,8 @@ export function ListeningPracticeClient({
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
 
   // Answer States
   const [textAnswer, setTextAnswer] = useState("");
@@ -62,16 +66,23 @@ export function ListeningPracticeClient({
     const updateProgress = () => {
       if (audio.duration) {
         setProgress((audio.currentTime / audio.duration) * 100);
+        setCurrentTime(audio.currentTime);
       }
+    };
+
+    const onLoaded = () => {
+      setDuration(audio.duration);
     };
 
     const onEnded = () => setIsPlaying(false);
 
     audio.addEventListener("timeupdate", updateProgress);
+    audio.addEventListener("loadedmetadata", onLoaded);
     audio.addEventListener("ended", onEnded);
 
     return () => {
       audio.removeEventListener("timeupdate", updateProgress);
+      audio.removeEventListener("loadedmetadata", onLoaded);
       audio.removeEventListener("ended", onEnded);
     };
   }, []);
@@ -86,12 +97,17 @@ export function ListeningPracticeClient({
     setIsPlaying(!isPlaying);
   };
 
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setFeedback(null);
 
     try {
-      // Prepare submission data
       const userResponse = {
         text: textAnswer,
         selectedOption,
@@ -100,16 +116,14 @@ export function ListeningPracticeClient({
         highlightedWords,
       };
 
-      // Server Action
-      // Expected: type, questionText, questionId, options, wordBank, audioTranscript, answerKey, userResponse
       const result = await scoreListeningAttempt(
         questionType as any,
         content,
         questionId,
         options,
-        undefined, // wordBank placeholder
+        undefined,
         transcript,
-        null, // answerKey placeholder - usually hidden
+        null,
         userResponse
       );
 
@@ -117,7 +131,7 @@ export function ListeningPracticeClient({
         setFeedback(result.feedback);
         toast({
           title: "Scoring Complete",
-          description: `Your score: ${result.feedback.overallScore}/90`,
+          description: `Your score: ${result.feedback.overallScore}${result.feedback.maxScore ? `/${result.feedback.maxScore}` : '/90'}`,
         });
       } else {
         throw new Error(result.error || "Scoring failed");
@@ -133,7 +147,22 @@ export function ListeningPracticeClient({
     }
   };
 
-  // Per-type instruction text
+  const handleRetry = () => {
+    setFeedback(null);
+    setTextAnswer("");
+    setSelectedOption("");
+    setSelectedOptions([]);
+    setFilledBlanks({});
+    setHighlightedWords([]);
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      setProgress(0);
+      setCurrentTime(0);
+    }
+  };
+
+  const optionLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
   const getInstruction = () => {
     switch (questionType) {
       case QuestionType.SUMMARIZE_SPOKEN_TEXT:
@@ -167,7 +196,16 @@ export function ListeningPracticeClient({
     }
   };
 
-  // Render Input Area based on Type
+  const hasAnswer = () => {
+    return (
+      textAnswer.trim().length > 0 ||
+      selectedOption.length > 0 ||
+      selectedOptions.length > 0 ||
+      Object.keys(filledBlanks).length > 0 ||
+      highlightedWords.length > 0
+    );
+  };
+
   const renderInputArea = () => {
     const instruction = getInstruction();
 
@@ -179,19 +217,29 @@ export function ListeningPracticeClient({
         return (
           <div className="space-y-4">
             {instruction && (
-              <p className="text-sm text-muted-foreground border-l-4 border-primary/40 pl-3 py-1 bg-muted/30 rounded-r">
-                {instruction}
-              </p>
+              <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                <Ear className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                <p className="text-sm text-blue-700 dark:text-blue-300">{instruction}</p>
+              </div>
             )}
-            <Label>Your Answer:</Label>
-            <Textarea
-              value={textAnswer}
-              onChange={(e) => setTextAnswer(e.target.value)}
-              placeholder="Type your response here..."
-              className="min-h-[200px]"
-            />
-            <div className="text-xs text-muted-foreground text-right">
-              Word count: {textAnswer.split(/\s+/).filter(Boolean).length}
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Your Answer</Label>
+              <Textarea
+                value={textAnswer}
+                onChange={(e) => setTextAnswer(e.target.value)}
+                placeholder="Type your response here..."
+                className="min-h-[180px] text-base leading-relaxed resize-y border-2 focus:border-primary"
+              />
+              <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+                <span>
+                  {String(questionType) === "summarize_spoken_text" || questionType === QuestionType.SUMMARIZE_SPOKEN_TEXT
+                    ? "Target: 50–70 words"
+                    : "Type what you heard"}
+                </span>
+                <span className="font-mono">
+                  {textAnswer.split(/\s+/).filter(Boolean).length} words
+                </span>
+              </div>
             </div>
           </div>
         );
@@ -206,26 +254,41 @@ export function ListeningPracticeClient({
         return (
           <div className="space-y-4">
             {instruction && (
-              <p className="text-sm text-muted-foreground border-l-4 border-primary/40 pl-3 py-1 bg-muted/30 rounded-r">
-                {instruction}
-              </p>
+              <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                <Ear className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                <p className="text-sm text-blue-700 dark:text-blue-300">{instruction}</p>
+              </div>
             )}
+            <p className="text-xs text-muted-foreground font-medium">Choose the best answer</p>
             <RadioGroup
               value={selectedOption}
               onValueChange={setSelectedOption}
-              className="space-y-3"
+              className="space-y-2.5"
             >
-              {options.map((opt, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-start space-x-2 border p-4 rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
-                >
-                  <RadioGroupItem value={opt} id={`opt-${idx}`} className="mt-1" />
-                  <Label htmlFor={`opt-${idx}`} className="cursor-pointer flex-1">
-                    {opt}
-                  </Label>
-                </div>
-              ))}
+              {options.map((opt, idx) => {
+                const isSelected = selectedOption === opt;
+                return (
+                  <label
+                    key={idx}
+                    htmlFor={`opt-${idx}`}
+                    className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-all duration-200 hover:shadow-sm ${
+                      isSelected
+                        ? 'border-primary bg-primary/5 shadow-sm'
+                        : 'border-border hover:border-primary/40 hover:bg-muted/30'
+                    }`}
+                  >
+                    <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold shrink-0 transition-colors ${
+                      isSelected
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {optionLetters[idx]}
+                    </div>
+                    <span className="flex-1 text-sm leading-relaxed pt-0.5">{opt}</span>
+                    <RadioGroupItem value={opt} id={`opt-${idx}`} className="shrink-0 mt-0.5" />
+                  </label>
+                );
+              })}
             </RadioGroup>
           </div>
         );
@@ -236,35 +299,45 @@ export function ListeningPracticeClient({
         return (
           <div className="space-y-4">
             {instruction && (
-              <p className="text-sm text-muted-foreground border-l-4 border-primary/40 pl-3 py-1 bg-muted/30 rounded-r">
-                {instruction}
-              </p>
+              <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                <Ear className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                <p className="text-sm text-blue-700 dark:text-blue-300">{instruction}</p>
+              </div>
             )}
-            <div className="space-y-3">
-              {options.map((opt, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-start space-x-2 border p-4 rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
-                >
-                  <Checkbox
-                    id={`opt-${idx}`}
-                    className="mt-1"
-                    checked={selectedOptions.includes(opt)}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      if (e.target.checked) {
-                        setSelectedOptions([...selectedOptions, opt]);
+            <p className="text-xs text-muted-foreground font-medium">
+              Select all that apply ({selectedOptions.length} selected)
+            </p>
+            <div className="space-y-2.5">
+              {options.map((opt, idx) => {
+                const isSelected = selectedOptions.includes(opt);
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedOptions(selectedOptions.filter((o) => o !== opt));
                       } else {
-                        setSelectedOptions(
-                          selectedOptions.filter((o) => o !== opt)
-                        );
+                        setSelectedOptions([...selectedOptions, opt]);
                       }
                     }}
-                  />
-                  <Label htmlFor={`opt-${idx}`} className="cursor-pointer flex-1">
-                    {opt}
-                  </Label>
-                </div>
-              ))}
+                    className={`flex items-start gap-3 w-full rounded-lg border-2 p-4 text-left transition-all duration-200 hover:shadow-sm ${
+                      isSelected
+                        ? 'border-primary bg-primary/5 shadow-sm'
+                        : 'border-border hover:border-primary/40 hover:bg-muted/30'
+                    }`}
+                  >
+                    <div className={`flex items-center justify-center w-7 h-7 rounded-md text-xs font-bold shrink-0 transition-colors ${
+                      isSelected
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {isSelected ? <Check className="h-4 w-4" /> : optionLetters[idx]}
+                    </div>
+                    <span className="text-sm leading-relaxed pt-0.5">{opt}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         );
@@ -274,9 +347,10 @@ export function ListeningPracticeClient({
         return (
           <div className="space-y-4">
             {instruction && (
-              <p className="text-sm text-muted-foreground border-l-4 border-primary/40 pl-3 py-1 bg-muted/30 rounded-r">
-                {instruction}
-              </p>
+              <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                <Ear className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                <p className="text-sm text-blue-700 dark:text-blue-300">{instruction}</p>
+              </div>
             )}
             <ListeningFillBlanks
               transcript={content}
@@ -291,9 +365,10 @@ export function ListeningPracticeClient({
         return (
           <div className="space-y-4">
             {instruction && (
-              <p className="text-sm text-muted-foreground border-l-4 border-primary/40 pl-3 py-1 bg-muted/30 rounded-r">
-                {instruction}
-              </p>
+              <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                <Ear className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                <p className="text-sm text-blue-700 dark:text-blue-300">{instruction}</p>
+              </div>
             )}
             <HighlightIncorrectWords
               transcript={transcript ?? content}
@@ -313,108 +388,112 @@ export function ListeningPracticeClient({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Audio Player */}
-      <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-lg flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={togglePlay}
-          className="h-12 w-12 rounded-full bg-white/10 hover:bg-white/20 text-white"
-        >
-          {isPlaying ? (
-            <Pause className="fill-current" />
-          ) : (
-            <Play className="fill-current ml-1" />
-          )}
-        </Button>
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-5 rounded-xl shadow-lg">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={togglePlay}
+            className="h-14 w-14 rounded-full bg-white/10 hover:bg-white/20 text-white shrink-0 transition-all hover:scale-105"
+          >
+            {isPlaying ? (
+              <Pause className="h-6 w-6 fill-current" />
+            ) : (
+              <Play className="h-6 w-6 fill-current ml-0.5" />
+            )}
+          </Button>
 
-        <div className="flex-1 space-y-2">
-          <div className="flex justify-between text-xs text-slate-400">
-            <span>Audio Prompt</span>
-            <span>{isPlaying ? "Playing..." : "Ready"}</span>
+          <div className="flex-1 space-y-2">
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-400 flex items-center gap-1.5">
+                <Headphones className="h-3 w-3" />
+                Audio Prompt
+              </span>
+              <span className="text-slate-400 font-mono">
+                {formatTime(currentTime)} / {duration ? formatTime(duration) : '--:--'}
+              </span>
+            </div>
+            <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-blue-400 to-blue-500 rounded-full transition-all duration-150"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
           </div>
-          <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-blue-500 transition-all duration-100"
-              style={{ width: `${progress}%` }}
-            />
+
+          <div className="shrink-0 flex items-center gap-1.5 text-slate-500">
+            <Volume2 className="h-4 w-4" />
           </div>
         </div>
-
-        <Volume2 className="text-slate-400" />
 
         <audio ref={audioRef} src={audioUrl} className="hidden" />
       </div>
 
+      {/* Question Content */}
+      {content && (
+        <Card className="border shadow-sm">
+          <CardContent className="p-6">
+            <p className="text-base leading-relaxed text-foreground">{content}</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Input Area */}
-      <Card>
+      <Card className="border shadow-sm overflow-hidden">
         <CardContent className="p-6">{renderInputArea()}</CardContent>
       </Card>
 
-      {/* Actions */}
-      <div className="flex justify-between items-center bg-muted/30 p-4 rounded-lg">
-        <div className="text-sm text-muted-foreground flex items-center gap-2">
-          <Ear className="w-4 h-4" />
-          Listen closely and answer carefully.
+      {/* Action Bar */}
+      <div className="flex items-center justify-between bg-muted/30 px-5 py-4 rounded-xl border">
+        <div className="flex items-center gap-3">
+          <CountdownTimer
+            initialSeconds={timeLimit}
+            onComplete={() => {
+              toast({
+                title: "Time's up!",
+                description: "Submitting your answer automatically.",
+              });
+              handleSubmit();
+            }}
+          />
         </div>
-        <CountdownTimer
-          initialSeconds={timeLimit}
-          onComplete={() => {
-            toast({
-              title: "Time's up!",
-              description: "Submitting your answer automatically.",
-            });
-            handleSubmit();
-          }}
-        />
-      </div>
-
-      <div className="flex justify-end items-center">
-
-        <Button
-          onClick={handleSubmit}
-          disabled={
-            isSubmitting ||
-            (!textAnswer &&
-             !selectedOption &&
-             selectedOptions.length === 0 &&
-             Object.keys(filledBlanks).length === 0 &&
-             highlightedWords.length === 0)
-          }
-          size="lg"
-          className="min-w-[150px]"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Scoring...
-            </>
-          ) : (
-            "Submit Answer"
+        <div className="flex items-center gap-3">
+          {feedback && (
+            <Button variant="outline" size="sm" onClick={handleRetry} className="gap-2">
+              <RotateCcw className="h-3.5 w-3.5" /> Retry
+            </Button>
           )}
-        </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting || !hasAnswer()}
+            className="min-w-[140px] gap-2"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Scoring...
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4" />
+                Submit Answer
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Feedback Display */}
       {feedback && (
-        <FeedbackCard
-          feedback={feedback}
-          questionType={questionType}
-          onRetry={() => {
-            setFeedback(null);
-            setTextAnswer("");
-            setSelectedOption("");
-            setSelectedOptions([]);
-            setFilledBlanks({});
-            setHighlightedWords([]);
-            // Reset audio
-            if (audioRef.current) {
-              audioRef.current.currentTime = 0;
-              setProgress(0);
-            }
-          }}
-        />
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <FeedbackCard
+            feedback={feedback}
+            questionType={questionType}
+            onRetry={handleRetry}
+          />
+        </div>
       )}
     </div>
   );
