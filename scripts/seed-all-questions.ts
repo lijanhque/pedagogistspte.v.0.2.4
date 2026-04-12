@@ -97,18 +97,35 @@ async function seedAllQuestions() {
       content: 'Climate change is one of the most pressing challenges of our time. Rising global temperatures, melting ice caps, and extreme weather events are clear indicators that our planet is undergoing significant environmental changes. Scientists worldwide agree that immediate action is needed to reduce carbon emissions and transition to sustainable energy sources.',
       difficulty: 'Medium' as const,
       tags: ['environment', 'science'],
+      isPremium: false,
     },
     {
       title: 'The Digital Revolution',
       content: 'The digital revolution has fundamentally transformed the way we live, work, and communicate. From smartphones to artificial intelligence, technology continues to reshape every aspect of modern society. Businesses that fail to adapt to this rapidly changing landscape risk becoming obsolete in an increasingly connected world.',
       difficulty: 'Hard' as const,
       tags: ['technology', 'business'],
+      isPremium: false,
     },
     {
       title: 'Importance of Sleep',
       content: 'Sleep is essential for maintaining good health and well-being. During sleep, the body repairs tissues, consolidates memories, and releases hormones that regulate growth and metabolism. Adults who consistently get seven to nine hours of quality sleep each night perform better cognitively and have stronger immune systems.',
       difficulty: 'Easy' as const,
       tags: ['health', 'biology'],
+      isPremium: false,
+    },
+    {
+      title: 'Advances in Biotechnology',
+      content: 'Recent advances in biotechnology are revolutionizing medicine, agriculture, and environmental science. Gene editing tools such as CRISPR-Cas9 allow scientists to modify DNA with unprecedented precision, opening the door to treatments for genetic diseases, development of drought-resistant crops, and new approaches to biodiversity conservation.',
+      difficulty: 'Hard' as const,
+      tags: ['science', 'biotechnology'],
+      isPremium: true,
+    },
+    {
+      title: 'The Economics of Education',
+      content: 'Investing in education yields significant economic returns for both individuals and societies. Higher levels of educational attainment are consistently associated with greater lifetime earnings, lower unemployment rates, and improved health outcomes. Governments that prioritize education spending tend to experience stronger economic growth and greater social mobility.',
+      difficulty: 'Medium' as const,
+      tags: ['education', 'economics'],
+      isPremium: true,
     },
   ]
 
@@ -120,7 +137,7 @@ async function seedAllQuestions() {
       difficulty: q.difficulty,
       tags: q.tags,
       isActive: true,
-      isPremium: false,
+      isPremium: q.isPremium,
       metadata: { source: 'PTE Content Team', lastReviewed: '2024-01-01' },
     }).returning()
     await db.insert(pteSpeakingQuestions).values({
@@ -156,17 +173,47 @@ async function seedAllQuestions() {
     })
   }
 
-  // ── SPEAKING: Describe Image (2 questions) ───────────────────────────────────
+  // ── SPEAKING: Describe Image (5 questions - 3 free, 2 premium) ──────────────
   const describeImages = [
     {
       title: 'Global Energy Consumption Bar Chart',
       content: 'Describe the bar chart showing global energy consumption by source from 2000 to 2020.',
-      imageUrl: 'https://d0ub0i0cvpsd7hu8.public.blob.vercel-storage.com/images/speaking/describe-image/energy-chart.png',
+      imageUrl: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800',
+      difficulty: 'Medium' as const,
+      isPremium: false,
+      keyPoints: ['Identify energy sources', 'Compare consumption levels', 'State trends over time'],
     },
     {
       title: 'Urban Population Growth Line Graph',
       content: 'Describe the line graph showing urban population growth across different continents over the past 50 years.',
-      imageUrl: 'https://d0ub0i0cvpsd7hu8.public.blob.vercel-storage.com/images/speaking/describe-image/population-graph.png',
+      imageUrl: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800',
+      difficulty: 'Medium' as const,
+      isPremium: false,
+      keyPoints: ['Identify continents shown', 'Compare growth rates', 'Note overall trend'],
+    },
+    {
+      title: 'Global Trade Flow Diagram',
+      content: 'Describe the diagram showing international trade flows between major economic regions.',
+      imageUrl: 'https://images.unsplash.com/photo-1526628953301-3e589a6a8b74?w=800',
+      difficulty: 'Hard' as const,
+      isPremium: false,
+      keyPoints: ['Identify major trade partners', 'Compare export/import volumes', 'State key relationships'],
+    },
+    {
+      title: 'Corporate Revenue Breakdown Pie Chart',
+      content: 'Describe the pie chart showing the revenue breakdown by business segment for a multinational corporation.',
+      imageUrl: 'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=800',
+      difficulty: 'Hard' as const,
+      isPremium: true,
+      keyPoints: ['Identify largest segments', 'Compare proportions', 'Note significant patterns'],
+    },
+    {
+      title: 'Scientific Research Data Scatter Plot',
+      content: 'Describe the scatter plot showing the correlation between study hours and examination results across multiple disciplines.',
+      imageUrl: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800',
+      difficulty: 'Hard' as const,
+      isPremium: true,
+      keyPoints: ['Identify axes and variables', 'Describe correlation pattern', 'Note outliers or clusters'],
     },
   ]
 
@@ -176,16 +223,16 @@ async function seedAllQuestions() {
       title: q.title,
       content: q.content,
       imageUrl: q.imageUrl,
-      difficulty: 'Medium',
+      difficulty: q.difficulty,
       tags: ['describe', 'visual'],
       isActive: true,
-      isPremium: false,
+      isPremium: q.isPremium,
       metadata: { source: 'PTE Content Team' },
     }).returning()
     await db.insert(pteSpeakingQuestions).values({
       questionId: base.id,
       expectedDuration: 40,
-      keyPoints: ['Identify the main trend', 'Compare data points', 'State conclusions'],
+      keyPoints: q.keyPoints,
     })
   }
 
@@ -915,11 +962,209 @@ async function seedAllQuestions() {
     })
   }
 
+  // ── SPEAKING: Respond to Situation (3 questions - 1 free, 2 premium) ────────
+  const respondToSituation = [
+    {
+      title: 'Late Assignment Apology',
+      content: 'You are a university student. You missed the deadline for submitting an important assignment because you were ill. You need to speak to your professor to explain the situation and request an extension. Speak as if you are addressing the professor directly.',
+      difficulty: 'Medium' as const,
+      isPremium: false,
+    },
+    {
+      title: 'Restaurant Complaint',
+      content: 'You are dining at a restaurant. Your food arrived cold and the order was incorrect. Speak to the waiter to explain the issue politely, describe what went wrong, and request a resolution.',
+      difficulty: 'Easy' as const,
+      isPremium: true,
+    },
+    {
+      title: 'Job Interview Follow-up',
+      content: 'You recently had a job interview but have not received a response. Call the company to politely inquire about the status of your application. Express your continued interest and ask about the timeline for a decision.',
+      difficulty: 'Hard' as const,
+      isPremium: true,
+    },
+  ]
+
+  for (const q of respondToSituation) {
+    const [base] = await db.insert(pteQuestions).values({
+      questionTypeId: qtMap.get('respond_to_situation')!,
+      title: q.title,
+      content: q.content,
+      difficulty: q.difficulty,
+      tags: ['speaking', 'situation', 'core'],
+      isActive: true,
+      isPremium: q.isPremium,
+      metadata: { source: 'PTE Core Content Team' },
+    }).returning()
+    await db.insert(pteSpeakingQuestions).values({
+      questionId: base.id,
+      expectedDuration: 40,
+    })
+  }
+
+  // ── SPEAKING: Summarize Group Discussion (2 questions - premium) ────────────
+  const groupDiscussions = [
+    {
+      title: 'Discussion on University Tuition Fees',
+      content: 'Listen to a group of students discussing whether university tuition fees should be reduced or eliminated. One student argues that education is a right and should be free, while another believes that tuition ensures quality and accountability. A third student suggests income-based repayment schemes as a compromise.',
+      keyPoints: ['Free education argument', 'Quality and accountability', 'Income-based repayment compromise', 'Access vs. sustainability'],
+    },
+    {
+      title: 'Discussion on Remote Work Culture',
+      content: 'Listen to colleagues discussing the future of remote work. One speaker favours permanent remote work for flexibility, another prefers in-office work for collaboration, and a third suggests a hybrid model combining the benefits of both approaches.',
+      keyPoints: ['Remote flexibility benefits', 'In-office collaboration advantages', 'Hybrid model proposal', 'Work-life balance'],
+    },
+  ]
+
+  for (const q of groupDiscussions) {
+    const [base] = await db.insert(pteQuestions).values({
+      questionTypeId: qtMap.get('summarize_group_discussion')!,
+      title: q.title,
+      content: q.content,
+      difficulty: 'Hard',
+      tags: ['speaking', 'discussion', 'core'],
+      isActive: true,
+      isPremium: true,
+      metadata: { source: 'PTE Core Content Team' },
+    }).returning()
+    await db.insert(pteSpeakingQuestions).values({
+      questionId: base.id,
+      expectedDuration: 40,
+      keyPoints: q.keyPoints,
+    })
+  }
+
+  // ── READING: Premium Questions ──────────────────────────────────────────────
+  // Premium MCQ Single
+  const premiumMCSingle = {
+    title: 'The Ethics of Artificial Intelligence',
+    passage: 'As artificial intelligence systems become more sophisticated, ethical questions about their deployment grow increasingly urgent. One central concern is algorithmic bias—the tendency of AI systems to perpetuate or amplify existing social inequalities. For instance, hiring algorithms trained on historical data may inadvertently discriminate against certain demographic groups. Researchers advocate for transparent and explainable AI, arguing that people affected by algorithmic decisions have a right to understand how those decisions were made.',
+    question: 'What is the main concern about AI systems discussed in the passage?',
+    choices: [
+      'AI systems are too expensive for most organizations',
+      'AI systems may perpetuate social inequalities through algorithmic bias',
+      'AI systems are replacing all human workers',
+      'AI systems cannot process large amounts of data effectively',
+    ],
+    correctPosition: 1,
+  }
+
+  const [premMCSBase] = await db.insert(pteQuestions).values({
+    questionTypeId: qtMap.get('reading_mc_single')!,
+    title: premiumMCSingle.title,
+    content: premiumMCSingle.passage,
+    difficulty: 'Hard',
+    tags: ['multiple-choice', 'reading', 'ethics', 'ai'],
+    isActive: true,
+    isPremium: true,
+    correctAnswer: { options: [premiumMCSingle.choices[premiumMCSingle.correctPosition]] },
+    metadata: { source: 'PTE Content Team' },
+  }).returning()
+  await db.insert(pteReadingQuestions).values({
+    questionId: premMCSBase.id,
+    passageText: premiumMCSingle.passage,
+    questionText: premiumMCSingle.question,
+    options: { choices: premiumMCSingle.choices },
+    correctAnswerPositions: [premiumMCSingle.correctPosition],
+    explanation: 'The passage focuses on algorithmic bias as the main ethical concern of AI.',
+  })
+
+  // Premium Reorder Paragraphs
+  const premiumReorder = {
+    title: 'The Discovery of Penicillin',
+    paragraphs: [
+      'A. In 1928, Alexander Fleming returned from holiday to find that a mould had contaminated one of his bacterial cultures.',
+      'B. He noticed that the bacteria surrounding the mould had been destroyed, suggesting the mould produced an antibacterial substance.',
+      'C. This substance was later identified and named penicillin, though it took another decade before it could be mass-produced.',
+      'D. The widespread availability of penicillin during World War II saved countless lives and ushered in the era of modern antibiotics.',
+    ],
+    correctOrder: [0, 1, 2, 3],
+  }
+
+  const [premROBase] = await db.insert(pteQuestions).values({
+    questionTypeId: qtMap.get('reorder_paragraphs')!,
+    title: premiumReorder.title,
+    content: premiumReorder.paragraphs.join('\n'),
+    difficulty: 'Medium',
+    tags: ['reorder', 'reading', 'history', 'science'],
+    isActive: true,
+    isPremium: true,
+    correctAnswer: { order: premiumReorder.correctOrder },
+    metadata: { source: 'PTE Content Team' },
+  }).returning()
+  await db.insert(pteReadingQuestions).values({
+    questionId: premROBase.id,
+    passageText: premiumReorder.paragraphs.join('\n'),
+    options: { paragraphs: premiumReorder.paragraphs },
+    correctAnswerPositions: premiumReorder.correctOrder,
+    explanation: 'Arrange chronologically: discovery, observation, identification, mass production and impact.',
+  })
+
+  // ── LISTENING: Premium Questions ────────────────────────────────────────────
+  // Premium Write from Dictation
+  const premiumDictation = [
+    'Sustainable development requires balancing economic growth with environmental protection.',
+    'The peer review process is essential for maintaining the integrity of scientific research.',
+  ]
+
+  for (const sentence of premiumDictation) {
+    const [base] = await db.insert(pteQuestions).values({
+      questionTypeId: qtMap.get('write_from_dictation')!,
+      title: `Premium Dictation: ${sentence.substring(0, 35)}...`,
+      content: sentence,
+      difficulty: 'Hard',
+      tags: ['dictation', 'listening', 'premium'],
+      isActive: true,
+      isPremium: true,
+      correctAnswer: { text: sentence },
+      metadata: { source: 'PTE Content Team' },
+    }).returning()
+    await db.insert(pteListeningQuestions).values({
+      questionId: base.id,
+      audioFileUrl: 'https://d0ub0i0cvpsd7hu8.public.blob.vercel-storage.com/audio/listening/write-from-dictation/placeholder.mp3',
+      audioDuration: 10,
+      transcript: sentence,
+    })
+  }
+
+  // Premium Highlight Correct Summary
+  const premiumHighlight = {
+    title: 'Lecture on Neuroplasticity',
+    transcript: 'For much of the twentieth century, scientists believed that the adult brain was essentially fixed and incapable of significant change. However, research over the past few decades has revealed that the brain retains remarkable plasticity throughout life. Neuroplasticity—the brain\'s ability to reorganise itself by forming new neural connections—plays a crucial role in learning, memory, and recovery from brain injuries. This discovery has led to new rehabilitation approaches for stroke patients and individuals with traumatic brain injuries.',
+    summaries: [
+      'Neuroplasticity is a concept that only applies to children\'s brains during early development.',
+      'The brain\'s ability to form new neural connections throughout life has revolutionised our understanding of learning, memory, and injury recovery.',
+      'Scientists have always known that the brain could change and adapt.',
+      'Brain injuries cannot be treated because neural connections cannot be restored.',
+    ],
+    correctPosition: 1,
+  }
+
+  const [premHCSBase] = await db.insert(pteQuestions).values({
+    questionTypeId: qtMap.get('highlight_correct_summary')!,
+    title: premiumHighlight.title,
+    content: premiumHighlight.transcript,
+    difficulty: 'Hard',
+    tags: ['highlight', 'summary', 'listening', 'premium'],
+    isActive: true,
+    isPremium: true,
+    correctAnswer: { options: [premiumHighlight.summaries[premiumHighlight.correctPosition]] },
+    metadata: { source: 'PTE Content Team' },
+  }).returning()
+  await db.insert(pteListeningQuestions).values({
+    questionId: premHCSBase.id,
+    audioFileUrl: 'https://d0ub0i0cvpsd7hu8.public.blob.vercel-storage.com/audio/listening/highlight-correct-summary/placeholder.mp3',
+    audioDuration: 75,
+    transcript: premiumHighlight.transcript,
+    options: { summaries: premiumHighlight.summaries },
+    correctAnswerPositions: [premiumHighlight.correctPosition],
+  })
+
   console.log('✅ All PTE questions seeded successfully!')
-  console.log('   Speaking: Read Aloud (3), Repeat Sentence (3), Describe Image (2), Re-tell Lecture (2), Answer Short Question (3)')
+  console.log('   Speaking: Read Aloud (5), Repeat Sentence (3), Describe Image (5), Re-tell Lecture (2), Answer Short Question (3), Respond to Situation (3), Summarize Group Discussion (2)')
   console.log('   Writing:  Summarize Written Text (3), Essay (3), Email (2)')
-  console.log('   Reading:  Fill Blanks Dropdown (3), MC Multiple (2), Reorder Paragraphs (2), Fill Blanks Drag (2), MC Single (2)')
-  console.log('   Listening: Summarize Spoken Text (2), MC Multiple (2), Fill Blanks (2), Highlight Summary (2), MC Single (2), Missing Word (2), Highlight Incorrect (2), Write from Dictation (3)')
+  console.log('   Reading:  Fill Blanks Dropdown (3), MC Multiple (2), Reorder Paragraphs (3), Fill Blanks Drag (2), MC Single (3)')
+  console.log('   Listening: Summarize Spoken Text (2), MC Multiple (2), Fill Blanks (2), Highlight Summary (3), MC Single (2), Missing Word (2), Highlight Incorrect (2), Write from Dictation (5)')
+  console.log('   Premium questions included for: Read Aloud, Describe Image, Re-tell Lecture, Respond to Situation, Group Discussion, MC Single, Reorder, Dictation, Highlight Summary, Summarize Spoken Text')
 }
 
 seedAllQuestions()
