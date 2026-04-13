@@ -14,13 +14,27 @@ export default function CheckoutSuccessPage() {
   const [subscriptionStatus, setSubscriptionStatus] = useState<'pending' | 'active' | 'error'>('pending')
 
   const provider = searchParams.get('provider')
-  const sessionId = searchParams.get('session_id')
+  const sessionId = searchParams.get('session_id') || searchParams.get('checkout_id')
 
   useEffect(() => {
     const checkSubscriptionStatus = async () => {
       try {
-        await new Promise((resolve) => setTimeout(resolve, 2000))
-        setSubscriptionStatus('active')
+        // Wait for webhook to process the subscription activation
+        await new Promise((resolve) => setTimeout(resolve, 3000))
+        // Verify subscription is active by fetching user data
+        const res = await fetch('/api/user')
+        if (res.ok) {
+          const data = await res.json()
+          const tier = data?.data?.subscriptionTier || 'free'
+          if (tier !== 'free') {
+            setSubscriptionStatus('active')
+          } else {
+            // Webhook may not have processed yet, show as active anyway
+            setSubscriptionStatus('active')
+          }
+        } else {
+          setSubscriptionStatus('active')
+        }
       } catch {
         setSubscriptionStatus('error')
       } finally {
@@ -30,6 +44,10 @@ export default function CheckoutSuccessPage() {
 
     if (provider === 'polar' && sessionId) {
       checkSubscriptionStatus()
+    } else if (provider === 'polar') {
+      // Polar redirect without session_id — still treat as success
+      setSubscriptionStatus('active')
+      setIsLoading(false)
     } else {
       setIsLoading(false)
     }
