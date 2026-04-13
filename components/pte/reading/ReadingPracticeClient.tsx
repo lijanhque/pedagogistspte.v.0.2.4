@@ -98,6 +98,8 @@ function extractWordBank(opts: any): string[] {
     if (!opts) return []
     // If it has a wordBank key, use it directly
     if (opts.wordBank && Array.isArray(opts.wordBank)) return opts.wordBank
+    // If it has a choices key (DB seed format: { choices: ["word1", "word2", ...] })
+    if (opts.choices && Array.isArray(opts.choices)) return opts.choices
     // If it's a flat string array already
     if (Array.isArray(opts) && opts.length > 0 && typeof opts[0] === 'string') return opts
     // Extract from blanks array
@@ -105,7 +107,9 @@ function extractWordBank(opts: any): string[] {
     if (Array.isArray(blanksArr)) {
         const words: string[] = []
         blanksArr.forEach((b: any) => {
-            if (b.options && Array.isArray(b.options)) {
+            if (typeof b === 'string') {
+                words.push(b)
+            } else if (b.options && Array.isArray(b.options)) {
                 words.push(...b.options)
             }
         })
@@ -250,12 +254,17 @@ export default function ReadingPracticeClient({ question }: ReadingPracticeClien
                 setFeedback(result.feedback)
                 setIsModalOpen(true)
                 const score = result.feedback.overallScore
-                const maxScore = result.feedback.maxScore
+                const accuracyText = result.feedback.accuracy?.feedback || ''
+                const scorePercent = score > 0 ? ((score - 10) / 80) * 100 : 0
                 toast({
-                    title: score >= 50 ? "Well done!" : "Keep practicing!",
-                    description: maxScore
-                        ? `Your score: ${score}/${maxScore}`
-                        : `Your score: ${score}/90`,
+                    title: scorePercent >= 80
+                        ? "Excellent work!"
+                        : scorePercent >= 50
+                            ? "Good job!"
+                            : "Keep practicing!",
+                    description: accuracyText
+                        ? `Score: ${score}/90 — ${accuracyText}`
+                        : `Your PTE score: ${score}/90`,
                 })
             } else {
                 toast({

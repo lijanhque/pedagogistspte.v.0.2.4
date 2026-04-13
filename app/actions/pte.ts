@@ -361,6 +361,22 @@ function buildDeterministicAnswer(
     }
   }
 
+  // If answerKey has options array (FIB Drag & Drop: { options: ["word1", "word2", ...] })
+  if (typeof answerKey === 'object' && !Array.isArray(answerKey) && answerKey?.options && Array.isArray(answerKey.options)) {
+    const correctBlanks: Record<string, string> = {};
+    answerKey.options.forEach((word: string, idx: number) => {
+      correctBlanks[idx.toString()] = word;
+    });
+    return { correctBlanks };
+  }
+
+  // If answerKey has order array (Reorder Paragraphs: { order: [0, 2, 1, 3] })
+  if (typeof answerKey === 'object' && !Array.isArray(answerKey) && answerKey?.order && Array.isArray(answerKey.order)) {
+    return {
+      correctOrder: answerKey.order.map((idx: number) => paragraphs?.[idx] || '').filter(Boolean)
+    };
+  }
+
   // If answerKey is already a flat object (for fill blanks — direct key-value map)
   if (
     typeof answerKey === 'object' &&
