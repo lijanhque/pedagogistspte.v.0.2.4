@@ -346,9 +346,34 @@ function buildDeterministicAnswer(
   correctOrder?: string[];
   correctBlanks?: Record<string, string>;
 } {
-  // If answerKey is already an object (for fill blanks), return it directly
-  if (typeof answerKey === 'object' && !Array.isArray(answerKey)) {
-    return { correctBlanks: answerKey };
+  // If answerKey is an object with a blanks property (FIB correct answer from base table)
+  if (typeof answerKey === 'object' && !Array.isArray(answerKey) && answerKey?.blanks) {
+    // blanks can be {"1": "word", "2": "word"} or {"0": "word", ...}
+    const blanks = answerKey.blanks;
+    if (typeof blanks === 'object' && !Array.isArray(blanks)) {
+      // Normalize keys to be 0-indexed strings
+      const correctBlanks: Record<string, string> = {};
+      const keys = Object.keys(blanks).sort((a, b) => Number(a) - Number(b));
+      keys.forEach((key, idx) => {
+        correctBlanks[idx.toString()] = blanks[key];
+      });
+      return { correctBlanks };
+    }
+  }
+
+  // If answerKey is already a flat object (for fill blanks — direct key-value map)
+  if (
+    typeof answerKey === 'object' &&
+    !Array.isArray(answerKey) &&
+    !answerKey?.blanks &&
+    !answerKey?.options &&
+    !answerKey?.order
+  ) {
+    // Check if it looks like a blanks map (string values)
+    const values = Object.values(answerKey);
+    if (values.length > 0 && values.every(v => typeof v === 'string')) {
+      return { correctBlanks: answerKey };
+    }
   }
 
   // If answerKey is an array of positions
@@ -368,6 +393,14 @@ function buildDeterministicAnswer(
         return {
           correctOrder: answerKey.map((idx: number) => paragraphs?.[idx] || '').filter(Boolean)
         };
+
+      // FIB types with correctAnswerPositions — shouldn't normally reach here
+      // since we pass correctAnswer.blanks for FIB, but handle as fallback
+      case QuestionType.READING_BLANKS:
+      case QuestionType.READING_WRITING_BLANKS:
+        // Cannot reconstruct blanks from positions without the blanks options data
+        // Return empty — the caller should pass the correct answer object instead
+        return {};
 
       default:
         return {};
