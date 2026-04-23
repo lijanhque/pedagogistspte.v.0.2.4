@@ -1,8 +1,8 @@
 "use client";
 
-import { Button } from "@repo/shadcn-ui/components/ui/button";
-import { Spinner } from "@repo/shadcn-ui/components/ui/spinner";
-import { cn } from "@repo/shadcn-ui/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 import { MicIcon, SquareIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -118,9 +118,9 @@ export const SpeechInput = ({
       return;
     }
 
-    const SpeechRecognition =
+    const SpeechRecognitionAPI =
       window.SpeechRecognition || window.webkitSpeechRecognition;
-    const speechRecognition = new SpeechRecognition();
+    const speechRecognition = new SpeechRecognitionAPI();
 
     speechRecognition.continuous = true;
     speechRecognition.interimResults = true;
@@ -274,7 +274,7 @@ export const SpeechInput = ({
       if (isListening) {
         stopMediaRecorder();
       } else {
-        startMediaRecorder();
+        void startMediaRecorder();
       }
     }
   }, [mode, isListening, startMediaRecorder, stopMediaRecorder]);
