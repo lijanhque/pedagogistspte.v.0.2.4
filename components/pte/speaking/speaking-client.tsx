@@ -19,6 +19,7 @@ import {
   TranscriptionSegment,
 } from "@/components/ai-elements/transcription";
 import { ScoreDisplay } from "@/components/pte/speaking/score-display";
+import { AudioWaveform } from "@/components/pte/speaking/audio-waveform";
 import {
   scoreSpeakingAttempt,
   scoreReadAloudAttempt,
@@ -31,38 +32,42 @@ import {
 import type { ScoreResult } from "@/lib/scoring";
 import { cn } from "@/lib/utils";
 
+// ─── Types ───────────────────────────────────────────────────────────────────
+
 type Status =
   | "idle"
-  | "preparing"
-  | "recording"
-  | "recorded"
-  | "submitting"
-  | "completed";
+  | "requesting"   // acquiring mic permission (brief)
+  | "preparing"    // prep countdown
+  | "recording"    // active recording
+  | "recorded"     // blob ready, awaiting submit/retry
+  | "submitting"   // uploading + scoring
+  | "completed";   // score ready
 
-function toScoreResult(feedback: SpeakingFeedbackData): ScoreResult {
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function toScoreResult(f: SpeakingFeedbackData): ScoreResult {
   return {
-    overallScore: feedback.overallScore,
-    content: feedback.content?.score ?? 0,
-    fluency: feedback.fluency?.score ?? 0,
-    pronunciation: feedback.pronunciation?.score ?? 0,
-    feedback: feedback.suggestions ?? [],
+    overallScore: f.overallScore,
+    content: f.content?.score ?? 0,
+    fluency: f.fluency?.score ?? 0,
+    pronunciation: f.pronunciation?.score ?? 0,
+    feedback: f.suggestions ?? [],
     detailedAnalysis: {
-      strengths: feedback.strengths ?? [],
-      improvements: feedback.areasForImprovement ?? [],
-      tips: feedback.suggestions ?? [],
+      strengths: f.strengths ?? [],
+      improvements: f.areasForImprovement ?? [],
+      tips: f.suggestions ?? [],
     },
   };
 }
 
 function getTimings(questionType: string) {
-  if (
-    questionType === QuestionType.READ_ALOUD ||
+  return questionType === QuestionType.READ_ALOUD ||
     questionType === "read_aloud"
-  ) {
-    return { prep: 35, record: 40 };
-  }
-  return { prep: 10, record: 40 };
+    ? { prep: 35, record: 40 }
+    : { prep: 10, record: 40 };
 }
+
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export function SpeakingPracticeClient({
   question,
@@ -77,6 +82,7 @@ export function SpeakingPracticeClient({
   const timings = getTimings(questionType);
   const recordDuration = question.questionType?.timeLimit ?? timings.record;
 
+  // ── State ──────────────────────────────────────────────────────────────────
   const [status, setStatus] = useState<Status>("idle");
   const [prepTime, setPrepTime] = useState(timings.prep);
   const [recordTime, setRecordTime] = useState(recordDuration);
@@ -90,7 +96,7 @@ export function SpeakingPracticeClient({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobRef = useRef<Blob | null>(null);
 
-  // Use a ref for the recording phase fn to avoid stale closures in the prep timer
+  // Ref so the prep-timer setInterval always calls the latest recording fn
   const beginRecordingPhaseRef = useRef<() => Promise<void>>(
     () => Promise.resolve()
   );
@@ -100,15 +106,18 @@ export function SpeakingPracticeClient({
   const {
     isRecording,
     isProcessing,
+    hasPermission,
     transcript,
     segments,
     audioBlob,
+    audioStream,
+    requestPermission,
     startRecording,
     stopRecording,
     error: recorderError,
   } = useSpeechRecorder();
 
-  // Transition to "recorded" once the audio blob is ready
+  // ── Blob ready → transition to "recorded" ──────────────────────────────────
   useEffect(() => {
     if (audioBlob && !isRecording && status === "recording") {
       blobRef.current = audioBlob;
@@ -118,7 +127,7 @@ export function SpeakingPracticeClient({
     }
   }, [audioBlob, isRecording, status]);
 
-  // Handle mic / recorder errors during recording
+  // ── Recorder error ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (recorderError && status === "recording") {
       prepTimerRef.current && clearInterval(prepTimerRef.current);
@@ -126,7 +135,7 @@ export function SpeakingPracticeClient({
       prepTimerRef.current = null;
       recordTimerRef.current = null;
       toast({
-        title: "Microphone Error",
+        title: "Recording Error",
         description: recorderError,
         variant: "destructive",
       });
@@ -134,7 +143,7 @@ export function SpeakingPracticeClient({
     }
   }, [recorderError, status]);
 
-  // Cleanup timers and object URLs on unmount
+  // ── Cleanup timers on unmount ───────────────────────────────────────────────
   useEffect(() => {
     return () => {
       prepTimerRef.current && clearInterval(prepTimerRef.current);
@@ -142,6 +151,7 @@ export function SpeakingPracticeClient({
     };
   }, []);
 
+  // ── Utilities ──────────────────────────────────────────────────────────────
   const clearTimers = useCallback(() => {
     prepTimerRef.current && clearInterval(prepTimerRef.current);
     recordTimerRef.current && clearInterval(recordTimerRef.current);
@@ -149,16 +159,18 @@ export function SpeakingPracticeClient({
     recordTimerRef.current = null;
   }, []);
 
-  // Defined with useCallback so it's stable, kept in sync via ref
+  // ── beginRecordingPhase ────────────────────────────────────────────────────
+  // Called from the setInterval callback (NOT a user gesture). It must NOT call
+  // getUserMedia — the stream was pre-acquired in handleBegin() during the click.
   const beginRecordingPhase = useCallback(async () => {
     playBeep();
     setStatus("recording");
     setRecordTime(recordDuration);
 
-    // startRecording handles mic permission internally; sets error on denial
+    // startRecording() will reuse the pre-stored stream from requestPermission()
     await startRecording();
 
-    // Start the countdown timer (stopRecording is safe to call even if start failed)
+    // Auto-stop after recordDuration seconds
     recordTimerRef.current = setInterval(() => {
       setRecordTime((prev) => {
         if (prev <= 1) {
@@ -172,9 +184,10 @@ export function SpeakingPracticeClient({
     }, 1000);
   }, [playBeep, recordDuration, startRecording, stopRecording]);
 
-  // Keep the ref in sync with the latest callback
+  // Keep ref in sync so the prep-timer closure always calls the latest version
   beginRecordingPhaseRef.current = beginRecordingPhase;
 
+  // ── beginPrepPhase ─────────────────────────────────────────────────────────
   const beginPrepPhase = useCallback(() => {
     clearTimers();
     setPrepTime(timings.prep);
@@ -198,6 +211,24 @@ export function SpeakingPracticeClient({
     }, 1000);
   }, [clearTimers, timings.prep]);
 
+  // ── handleBegin ────────────────────────────────────────────────────────────
+  // This IS the user gesture. We request mic HERE so the browser allows it.
+  const handleBegin = useCallback(async () => {
+    setStatus("requesting");
+    const granted = await requestPermission();
+    if (!granted) {
+      toast({
+        title: "Microphone Required",
+        description:
+          "Please allow microphone access in your browser and try again.",
+        variant: "destructive",
+      });
+      setStatus("idle");
+      return;
+    }
+    beginPrepPhase();
+  }, [requestPermission, beginPrepPhase]);
+
   const handleManualStop = useCallback(() => {
     clearTimers();
     stopRecording();
@@ -215,7 +246,6 @@ export function SpeakingPracticeClient({
 
   const handleSubmit = useCallback(async () => {
     if (!blobRef.current) return;
-
     setStatus("submitting");
     setSubmitError(null);
 
@@ -237,13 +267,14 @@ export function SpeakingPracticeClient({
     }
   }, [content, question.id, questionType]);
 
-  // ------- Derived values -------
+  // ── Derived values ─────────────────────────────────────────────────────────
   const prepProgress = ((timings.prep - prepTime) / timings.prep) * 100;
   const recordProgress = ((recordDuration - recordTime) / recordDuration) * 100;
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      {/* Error banners */}
+      {/* Error banner */}
       {submitError && (
         <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-lg border border-destructive/20">
           <AlertCircle className="size-4 shrink-0" />
@@ -251,55 +282,55 @@ export function SpeakingPracticeClient({
         </div>
       )}
 
-      {/* ====== IDLE ====== */}
+      {/* ===== IDLE ===== */}
       {status === "idle" && (
         <div className="flex flex-col items-center gap-4 py-8">
-          <div className="text-center space-y-1">
-            <p className="text-sm text-muted-foreground">
-              You have {timings.prep}s to prepare, then {recordDuration}s to
-              respond.
-            </p>
-          </div>
-          <Button onClick={beginPrepPhase} size="lg" className="gap-2">
+          {recorderError && (
+            <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-lg border border-destructive/20 w-full max-w-sm">
+              <AlertCircle className="size-4 shrink-0" />
+              {recorderError}
+            </div>
+          )}
+          <p className="text-sm text-muted-foreground text-center">
+            {timings.prep}s preparation · {recordDuration}s to respond
+          </p>
+          <Button onClick={handleBegin} size="lg" className="gap-2">
             <PlayCircle className="size-5" /> Begin Practice
           </Button>
         </div>
       )}
 
-      {/* ====== PREPARING ====== */}
+      {/* ===== REQUESTING MIC ===== */}
+      {status === "requesting" && (
+        <div className="flex flex-col items-center gap-3 py-8">
+          <Loader2 className="size-6 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">
+            Waiting for microphone permission…
+          </p>
+        </div>
+      )}
+
+      {/* ===== PREPARING ===== */}
       {status === "preparing" && (
         <div className="flex flex-col items-center gap-4 py-8">
-          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Prepare to speak
           </p>
 
-          {/* Circular countdown */}
           <div className="relative w-24 h-24">
-            <svg
-              className="w-24 h-24 -rotate-90"
-              viewBox="0 0 96 96"
-              aria-hidden="true"
-            >
+            <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
               <circle
-                cx="48"
-                cy="48"
-                r="40"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="6"
+                cx="48" cy="48" r="40" fill="none"
+                strokeWidth="6" stroke="currentColor"
                 className="text-muted/30"
               />
               <circle
-                cx="48"
-                cy="48"
-                r="40"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="6"
+                cx="48" cy="48" r="40" fill="none"
+                strokeWidth="6" stroke="currentColor"
                 className="text-primary transition-all duration-1000"
+                strokeLinecap="round"
                 strokeDasharray={`${2 * Math.PI * 40}`}
                 strokeDashoffset={`${2 * Math.PI * 40 * (1 - prepProgress / 100)}`}
-                strokeLinecap="round"
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
@@ -313,22 +344,18 @@ export function SpeakingPracticeClient({
         </div>
       )}
 
-      {/* ====== RECORDING ====== */}
+      {/* ===== RECORDING ===== */}
       {status === "recording" && (
-        <div className="flex flex-col items-center gap-5 py-6">
-          {/* Pulsing mic / stop button */}
+        <div className="flex flex-col items-center gap-5 py-4">
+          {/* Pulsing stop button */}
           <div className="relative inline-flex items-center justify-center">
-            {isRecording &&
-              [0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="absolute inset-0 animate-ping rounded-full border-2 border-red-400/30"
-                  style={{
-                    animationDelay: `${i * 0.3}s`,
-                    animationDuration: "2s",
-                  }}
-                />
-              ))}
+            {isRecording && [0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="absolute inset-0 animate-ping rounded-full border-2 border-red-400/30"
+                style={{ animationDelay: `${i * 0.3}s`, animationDuration: "2s" }}
+              />
+            ))}
             <Button
               className={cn(
                 "relative z-10 size-16 rounded-full transition-all duration-300",
@@ -338,7 +365,7 @@ export function SpeakingPracticeClient({
               )}
               onClick={handleManualStop}
               disabled={isProcessing}
-              aria-label={isRecording ? "Stop recording" : "Starting…"}
+              aria-label="Stop recording"
             >
               {isProcessing ? (
                 <Loader2 className="size-6 animate-spin" />
@@ -350,38 +377,48 @@ export function SpeakingPracticeClient({
             </Button>
           </div>
 
-          <div className="text-sm font-medium text-destructive tabular-nums">
+          {/* Timer */}
+          <p className={cn(
+            "text-sm font-semibold tabular-nums",
+            isRecording ? "text-destructive" : "text-muted-foreground"
+          )}>
             {isRecording ? `${recordTime}s remaining` : "Starting…"}
-          </div>
+          </p>
 
           {/* Record progress bar */}
-          <div className="w-full max-w-sm">
-            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-destructive transition-all duration-1000 rounded-full"
-                style={{ width: `${recordProgress}%` }}
-              />
-            </div>
+          <div className="w-full max-w-sm h-1.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-destructive transition-all duration-1000 rounded-full"
+              style={{ width: `${recordProgress}%` }}
+            />
           </div>
 
-          {/* Live transcript (Web Speech API only) */}
+          {/* Live audio waveform */}
+          <AudioWaveform
+            isRecording={isRecording}
+            audioStream={audioStream}
+            barCount={40}
+            className="w-full max-w-sm"
+          />
+
+          {/* Live transcript (Web Speech API — Chrome/Edge only) */}
           {transcript && (
-            <div className="w-full max-w-lg bg-muted/30 rounded-xl p-4 text-sm leading-relaxed">
-              <p className="text-xs font-medium uppercase tracking-wide mb-2 text-muted-foreground/70">
+            <div className="w-full max-w-lg bg-muted/30 rounded-xl p-4 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-widest mb-2 text-muted-foreground/70">
                 Live Transcript
               </p>
-              <p className="text-muted-foreground">{transcript}</p>
+              <p className="text-muted-foreground leading-relaxed">{transcript}</p>
             </div>
           )}
         </div>
       )}
 
-      {/* ====== RECORDED ====== */}
+      {/* ===== RECORDED ===== */}
       {status === "recorded" && audioUrl && (
         <div className="space-y-4">
-          {/* Audio playback */}
+          {/* Playback */}
           <div className="bg-muted/30 rounded-xl p-4 space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Your Recording
             </p>
             <audio
@@ -389,16 +426,14 @@ export function SpeakingPracticeClient({
               src={audioUrl}
               controls
               className="w-full"
-              onTimeUpdate={(e) =>
-                setPlaybackTime(e.currentTarget.currentTime)
-              }
+              onTimeUpdate={(e) => setPlaybackTime(e.currentTarget.currentTime)}
             />
           </div>
 
-          {/* Synchronized transcript (clickable segments) */}
+          {/* Synchronized transcript with click-to-seek */}
           {segments.length > 0 && (
             <div className="bg-muted/20 rounded-xl p-4 space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Transcript
               </p>
               <Transcription
@@ -419,10 +454,10 @@ export function SpeakingPracticeClient({
             </div>
           )}
 
-          {/* Plain transcript fallback (no segments) */}
+          {/* Plain transcript fallback (no segments = Firefox/Safari MediaRecorder path) */}
           {segments.length === 0 && transcript && (
             <div className="bg-muted/20 rounded-xl p-4 space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Transcript
               </p>
               <p className="text-sm text-muted-foreground leading-relaxed">
@@ -443,17 +478,15 @@ export function SpeakingPracticeClient({
         </div>
       )}
 
-      {/* ====== SUBMITTING ====== */}
+      {/* ===== SUBMITTING ===== */}
       {status === "submitting" && (
         <div className="flex flex-col items-center gap-3 py-12">
           <Loader2 className="size-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">
-            Analysing your response…
-          </p>
+          <p className="text-sm text-muted-foreground">Analysing your response…</p>
         </div>
       )}
 
-      {/* ====== COMPLETED ====== */}
+      {/* ===== COMPLETED ===== */}
       {status === "completed" && feedback && (
         <div className="space-y-6">
           <ScoreDisplay
