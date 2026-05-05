@@ -1,177 +1,92 @@
-export const dynamic = 'force-dynamic';
+import { AcademicPracticeHeader } from '@/components/pte/practice-header'
+import QuestionListTable from '@/components/pte/practice/QuestionListTable'
+import { db } from '@/lib/db/drizzle'
+import { pteQuestions } from '@/lib/db/schema/pte-questions'
+import { eq } from 'drizzle-orm'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Headphones, Sparkles } from 'lucide-react'
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
-import { ArrowRight, Clock, Headphones, Sparkles, PenLine, CheckSquare, Type, MousePointer, Ear } from "lucide-react";
-import { getPteQuestionCounts } from "@/lib/db/queries/metrics";
+export const dynamic = 'force-dynamic'
 
-const listeningTypes = [
-  {
-    id: "summarize_spoken_text",
-    name: "Summarize Spoken Text",
-    description: "Listen to a recording and write a summary in 50-70 words",
-    time: "10 min",
-    aiScored: true,
-    icon: PenLine,
-  },
-  {
-    id: "listening_mc_multiple",
-    name: "Multiple Choice (Multiple)",
-    description: "Listen to a recording and choose all correct answers",
-    time: "40-90 sec",
-    aiScored: false,
-    icon: CheckSquare,
-  },
-  {
-    id: "listening_fill_blanks",
-    name: "Fill in the Blanks",
-    description: "Listen to a recording and type the missing words in transcript",
-    time: "30-60 sec",
-    aiScored: false,
-    icon: Type,
-  },
-  {
-    id: "highlight_correct_summary",
-    name: "Highlight Correct Summary",
-    description: "Select the paragraph that best summarizes the recording",
-    time: "30-90 sec",
-    aiScored: false,
-    icon: MousePointer,
-  },
-  {
-    id: "listening_mc_single",
-    name: "Multiple Choice (Single)",
-    description: "Listen to a recording and choose the single best answer",
-    time: "30-60 sec",
-    aiScored: false,
-    icon: CheckSquare,
-  },
-  {
-    id: "select_missing_word",
-    name: "Select Missing Word",
-    description: "Select the missing word that completes the recording",
-    time: "20-70 sec",
-    aiScored: false,
-    icon: Ear,
-  },
-  {
-    id: "highlight_incorrect_words",
-    name: "Highlight Incorrect Words",
-    description: "Click on the words in the transcript that differ from audio",
-    time: "15-50 sec",
-    aiScored: false,
-    icon: MousePointer,
-  },
-  {
-    id: "write_from_dictation",
-    name: "Write From Dictation",
-    description: "Type the short sentence exactly as you hear it",
-    time: "10-15 sec",
-    aiScored: true,
-    isHighValue: true,
-    icon: PenLine,
-  },
-];
+async function getListeningQuestions() {
+  const questions = await db.query.pteQuestions.findMany({
+    where: eq(pteQuestions.isActive, true),
+    with: {
+      questionType: true,
+      listening: true,
+    },
+    limit: 20,
+  })
+
+  return questions.filter(
+    (question) => question.questionType?.code?.startsWith('listening') && question.listening
+  )
+}
 
 export default async function ListeningPracticePage() {
-  const counts = await getPteQuestionCounts();
+  const questions = await getListeningQuestions()
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-8 max-w-4xl">
-      {/* Header */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-950 dark:to-amber-950">
-            <Headphones className="h-7 w-7 text-orange-600 dark:text-orange-400" />
+    <div className="bg-background min-h-screen">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <AcademicPracticeHeader section="listening" showFilters={false} />
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1.8fr_1fr]">
+          <div className="space-y-6">
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center gap-3 text-slate-700">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+                  <Headphones className="h-6 w-6" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.24em] text-violet-600">Listening Practice</p>
+                  <h1 className="mt-2 text-3xl font-bold text-slate-900">Improve your listening comprehension</h1>
+                </div>
+              </div>
+              <p className="mt-6 text-sm leading-6 text-slate-600">
+                Practice PTE listening formats with clear audio and instant scoring. Master Summarize Spoken Text, Dictation, and other listening tasks.
+              </p>
+            </section>
+
+            <QuestionListTable
+              questionType={{
+                name: 'Listening Practice',
+                description: 'Select a question to practice listening tasks with instant scoring.',
+                timeLimit: 10 * 60,
+              }}
+              questions={questions}
+              basePath="/academic/practice/listening"
+              backLink="/academic/practice"
+              title="Back to practice hub"
+            />
           </div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Listening Practice
-            </h1>
-            <p className="text-muted-foreground mt-0.5">
-              Master all 8 listening question types for PTE Academic
-            </p>
-          </div>
+
+          <aside className="space-y-6">
+            <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold">Listening Tips</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm text-slate-600">
+                <p>Focus on main ideas while listening. Take notes efficiently and distinguish key information from details.</p>
+                <div className="space-y-3">
+                  {[
+                    'Listen for the main idea first.',
+                    'Note key details and keywords.',
+                    'Understand different accents and speaking speeds.',
+                  ].map((tip) => (
+                    <div key={tip} className="rounded-2xl bg-violet-50 p-3">
+                      <div className="flex items-start gap-2">
+                        <Sparkles className="mt-0.5 h-4 w-4 text-violet-600" />
+                        <p>{tip}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </aside>
         </div>
       </div>
-
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/academic/practice" className="hover:text-primary transition-colors">
-          Practice
-        </Link>
-        <span className="text-muted-foreground/50">/</span>
-        <span className="text-foreground font-medium">Listening</span>
-      </nav>
-
-      {/* Question Types */}
-      <div className="grid gap-3">
-        {listeningTypes.map((type) => {
-          const Icon = type.icon;
-          const count = counts[type.id] || 0;
-
-          return (
-            <Link key={type.id} href={`/academic/practice/listening/${type.id}`}>
-              <Card className={`hover:shadow-md transition-all duration-200 cursor-pointer group border-2 ${
-                type.isHighValue
-                  ? 'border-orange-200 dark:border-orange-900/50 bg-orange-50/30 dark:bg-orange-950/10 hover:border-orange-300'
-                  : 'hover:border-primary/50'
-              }`}>
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-4">
-                    <div className={`p-2.5 rounded-lg shrink-0 transition-colors ${
-                      type.isHighValue
-                        ? 'bg-orange-100 dark:bg-orange-900/30 group-hover:bg-orange-200 dark:group-hover:bg-orange-900/50'
-                        : 'bg-muted group-hover:bg-primary/10'
-                    }`}>
-                      <Icon className={`h-5 w-5 ${
-                        type.isHighValue
-                          ? 'text-orange-600 dark:text-orange-400'
-                          : 'text-muted-foreground group-hover:text-primary'
-                      }`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <h3 className="font-semibold text-base group-hover:text-primary transition-colors">
-                          {type.name}
-                        </h3>
-                        {type.aiScored ? (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
-                            AI Scored
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium">
-                            Auto Scored
-                          </Badge>
-                        )}
-                        {type.isHighValue && (
-                          <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300 hover:bg-orange-200 border-0 text-[10px] gap-0.5">
-                            <Sparkles className="size-2.5" /> High Value
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-muted-foreground text-sm mb-2 line-clamp-1">
-                        {type.description}
-                      </p>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {type.time}
-                        </span>
-                        <span className="font-medium">{count} questions</span>
-                      </div>
-                    </div>
-                    <div className="size-9 rounded-full bg-muted/50 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all shrink-0">
-                      <ArrowRight className="h-4 w-4" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
-      </div>
     </div>
-  );
+  )
 }

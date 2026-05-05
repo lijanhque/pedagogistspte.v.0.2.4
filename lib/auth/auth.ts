@@ -4,7 +4,6 @@ import { nextCookies } from "better-auth/next-js";
 import { admin } from "better-auth/plugins/admin";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { sendPasswordResetEmail, sendVerificationEmail } from "./email";
 
 export const auth = betterAuth({
   appName: "PTE Academic",
@@ -17,38 +16,15 @@ export const auth = betterAuth({
       user: schema.users,
       session: schema.sessions,
       account: schema.accounts,
-      verification: schema.verifications,
     },
   }),
 
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: process.env.NODE_ENV === 'production',
-    sendResetPassword: async ({ user, url }) => {
-      try {
-        await sendPasswordResetEmail(user.email, url, user.name);
-      } catch (error) {
-        console.error('Failed to send password reset email:', error);
-        throw new Error('Failed to send password reset email');
-      }
-    },
+    requireEmailVerification: false,
     autoSignIn: true,
     minPasswordLength: 8,
     maxPasswordLength: 128,
-  },
-
-  emailVerification: {
-    sendVerificationEmail: async ({ user, url }) => {
-      try {
-        await sendVerificationEmail(user.email, url, user.name);
-      } catch (error) {
-        console.error('Failed to send verification email:', error);
-        throw new Error('Failed to send verification email');
-      }
-    },
-    sendOnSignUp: process.env.NODE_ENV === 'production',
-    autoSignInAfterVerification: true,
-    expiresIn: 60 * 60 * 24, // 24 hours
   },
 
   session: {
@@ -64,10 +40,7 @@ export const auth = betterAuth({
 
   user: {
     changeEmail: {
-      enabled: true,
-      sendChangeEmailVerification: async ({ newEmail, url }) => {
-        await sendVerificationEmail(newEmail, url);
-      },
+      enabled: false,
     },
     deleteUser: {
       enabled: true,

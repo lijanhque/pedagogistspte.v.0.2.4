@@ -1,50 +1,43 @@
-import { db } from "@/lib/db/drizzle";
-import { pteQuestionTypes } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-import { notFound } from "next/navigation";
-import QuestionListTable from "@/components/pte/practice/QuestionListTable";
-import { getPracticeQuestions } from "@/lib/pte/practice";
-import { auth } from "@/lib/auth/auth";
-import { headers } from "next/headers";
+import { notFound } from 'next/navigation'
+import { db } from '@/lib/db/drizzle'
+import { pteQuestions } from '@/lib/db/schema/pte-questions'
+import { eq } from 'drizzle-orm'
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic'
 
-interface PageProps {
-  params: Promise<{
-    question: string;
-  }>;
+async function getQuestion(questionId: string) {
+  return db.query.pteQuestions.findFirst({
+    where: eq(pteQuestions.id, questionId),
+    with: {
+      questionType: true,
+      writing: true,
+    },
+  })
 }
 
-export default async function WritingQuestionListPage({ params }: PageProps) {
-  const { question: questionTypeCode } = await params;
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+interface WritingQuestionPageProps {
+  params: {
+    question: string
+  }
+}
 
-  // 1. Get the Question Type ID
-  const questionType = await db.query.pteQuestionTypes.findFirst({
-    where: eq(pteQuestionTypes.code, questionTypeCode as any),
-  });
+export default async function WritingPracticeQuestionPage({ params }: WritingQuestionPageProps) {
+  const question = await getQuestion(params.question)
 
-  if (!questionType) {
-    return notFound();
+  if (!question || !question.questionType || !question.writing) {
+    notFound()
   }
 
-  // 2. Get Questions for this type using helper
-  const questions = await getPracticeQuestions(
-    questionTypeCode,
-    1,
-    100, // Fetch all for list
-    session?.user?.id
-  );
-
+  // For writing, we'll render a basic placeholder that can be enhanced
   return (
-    <QuestionListTable
-      questionType={questionType}
-      questions={questions}
-      basePath={`/academic/practice/writing/${questionTypeCode}`}
-      backLink="/academic/practice/writing"
-      title="Back to Writing Practice"
-    />
-  );
+    <div className="bg-background min-h-screen">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+          <h1 className="text-2xl font-bold text-slate-900">{question.title}</h1>
+          <p className="mt-4 text-slate-600">Writing practice for: {question.questionType.name}</p>
+          <p className="mt-2 text-sm text-slate-500">Question ID: {question.id}</p>
+        </div>
+      </div>
+    </div>
+  )
 }

@@ -65,38 +65,53 @@ export default function ReadingAttempt({
     undefined
   )
 
-  // Fetch question if not provided
-  useEffect(() => {
-    let mounted = true
-    const run = async () => {
-      if (initialPrompt) return
-      setLoading(true)
-      setFetchError(null)
-      try {
-        const res = await fetch(
-          `/api/reading/questions/${encodeURIComponent(questionId)}`,
-          { cache: 'no-store' }
-        )
-        if (!res.ok) {
-          const msg =
-            (await res.json().catch(() => null))?.error ||
-            `Failed to load question (${res.status})`
-          throw new Error(msg)
-        }
-        const data = await res.json()
-        const q = (data?.question || data) as PromptLike
-        if (mounted) setPrompt(q)
-      } catch (e: any) {
-        if (mounted) setFetchError(e?.message || 'Failed to load question.')
-      } finally {
-        if (mounted) setLoading(false)
-      }
-    }
-    run()
-    return () => {
-      mounted = false
-    }
-  }, [initialPrompt, questionId])
+   // Fetch question if not provided
+   useEffect(() => {
+     let mounted = true
+     const run = async () => {
+       if (initialPrompt) return
+       setLoading(true)
+       setFetchError(null)
+       try {
+         // Use correct API endpoint that exists
+         const res = await fetch(
+           `/api/pte/questions?id=${encodeURIComponent(questionId)}`,
+           { cache: 'no-store' }
+         )
+         if (!res.ok) {
+           const msg =
+             (await res.json().catch(() => null))?.error ||
+             `Failed to load question (${res.status})`
+           throw new Error(msg)
+         }
+         const data = await res.json()
+         // API returns array, extract first question
+         const questionsArray = Array.isArray(data) ? data : [data]
+         const q = questionsArray[0] as PromptLike
+         if (!q) throw new Error('Question not found')
+         
+         // Normalize to expected PromptLike shape
+         const normalized: PromptLike = {
+           id: q.id,
+           type: q.questionType?.name || q.questionType?.code || questionType,
+           title: q.title,
+           promptText: q.reading?.passageText || q.content || '',
+           options: q.reading?.options || q.correctAnswer,
+           difficulty: q.difficulty,
+         }
+         
+         if (mounted) setPrompt(normalized)
+       } catch (e: any) {
+         if (mounted) setFetchError(e?.message || 'Failed to load question.')
+       } finally {
+         if (mounted) setLoading(false)
+       }
+     }
+     run()
+     return () => {
+       mounted = false
+     }
+   }, [initialPrompt, questionId, questionType])
 
   // Init offline retry once
   useEffect(() => {

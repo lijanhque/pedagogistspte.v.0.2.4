@@ -19,5 +19,10 @@
   "githubIssues.alwaysPromptForNewIssueRepo": true,
   "sanity.useCDN": true,
   "sanity.openJSONFile": true,
-  "extension.prophet.sitecontext.selectedSiteID": ""
+  "extension.prophet.sitecontext.selectedSiteID": "",
+  "kilo-code.new.autocomplete.enableChatAutocomplete": true,
+  "kilo-code.new.autocomplete.enableSmartInlineTaskKeybinding": true,
+  "kilo-code.new.browserAutomation.enabled": true,
+  "kilo-code.new.browserAutomation.headless": true,
+  "kilo-code.new.claudeCodeCompat": true
 }

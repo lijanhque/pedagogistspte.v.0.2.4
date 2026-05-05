@@ -6,6 +6,8 @@ import { eq } from 'drizzle-orm';
 import { pteQuestions } from '@/lib/db/schema';
 import { savePteAttempt, trackAIUsage } from '@/lib/db/queries/pte-scoring';
 import { auth } from '@/lib/auth/auth';
+import { canUseAiScoring, deductAiCredit } from '@/lib/subscription/credits';
+import { canStartPracticeQuestion, incrementPracticeQuestionCount } from '@/lib/subscription/practice-limits';
 
 export async function POST(req: NextRequest) {
     try {
@@ -44,6 +46,32 @@ export async function POST(req: NextRequest) {
 
         const questionType = type as QuestionType;
 
+        // Check practice limits for this question type
+        const section = questionType.includes('speaking') || questionType.includes('read_aloud') || questionType.includes('repeat') || questionType.includes('describe') || questionType.includes('retell') || questionType.includes('answer_short_question')
+            ? 'speaking'
+            : questionType.includes('writing') || questionType.includes('write_essay') || questionType.includes('summarize_written_text')
+            ? 'writing'
+            : questionType.includes('reading') || questionType.includes('multiple_choice_single') || questionType.includes('multiple_choice_multiple') || questionType.includes('reorder_paragraphs') || questionType.includes('fill_in_blanks') || questionType.includes('reading_writing_fill_blanks')
+            ? 'reading'
+            : 'listening';
+
+        const practiceCheck = await canStartPracticeQuestion(session.user.id, section, questionType);
+        if (!practiceCheck.allowed) {
+            return NextResponse.json(
+                { success: false, error: practiceCheck.reason || 'Practice limit reached' },
+                { status: 429 }
+            );
+        }
+
+        // Check AI credits if needed
+        const creditCheck = await canUseAiScoring(session.user.id, questionType);
+        if (!creditCheck.allowed) {
+            return NextResponse.json(
+                { success: false, error: creditCheck.reason || 'Insufficient AI credits' },
+                { status: 429 }
+            );
+        }
+
         // Determine input type
         const agentSubmission = {
             text: submission.textAnswer || submission.userTranscript,
@@ -55,6 +83,17 @@ export async function POST(req: NextRequest) {
             questionContent: question.content || question.title,
             submission: agentSubmission,
         });
+
+        // Increment practice question count
+        await incrementPracticeQuestionCount(session.user.id, 1);
+
+        // Deduct AI credits if needed
+        if (creditCheck.allowed) {
+            const creditsNeeded = questionType.includes('speaking') || questionType.includes('writing') ? 1 : 0;
+            if (creditsNeeded > 0) {
+                await deductAiCredit(session.user.id, creditsNeeded);
+            }
+        }
 
         // Save the attempt to the database
         const attempt = await savePteAttempt({
