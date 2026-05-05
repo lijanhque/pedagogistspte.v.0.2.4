@@ -50,6 +50,13 @@
       "when": 1767650966283,
       "tag": "0006_mute_lucky_pierre",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1777969684622,
+      "tag": "0007_chilly_shockwave",
+      "breakpoints": true
     }
   ]
 }

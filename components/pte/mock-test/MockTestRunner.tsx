@@ -96,25 +96,34 @@ export default function MockTestRunner({
 
         // Prepare Payload based on Type
         if (normalizedType.includes("speaking")) {
-            // SpeakingRecorder uploads independently or passes blob?
-            // If we have answerData from SpeakingRecorder (audioUrl), use it.
-            // If we just recorded it:
+            // SpeakingRecorder provides blob or audioUrl
             if (answerData?.audioUrl) {
                 payload = { audioUrl: answerData.audioUrl };
             } else if (answerData?.blob) {
-                // Upload Blob here if not done
                 try {
                     const formData = new FormData();
                     formData.append("file", answerData.blob, "recording.webm");
-                    // Mock upload or real
-                    // const upRes = await fetch('/api/upload', ...);
-                    // For now, assuming we handled it or send placeholder
-                    console.log("Uploading Audio Blob size:", answerData.blob.size);
-                    payload = {
-                        error: "Audio Upload Simulated - Production requires endpoint",
-                    };
-                } catch (e) {
-                    console.error(e);
+                    
+                    const upRes = await fetch("/api/upload/audio", {
+                        method: "POST",
+                        body: formData,
+                    });
+                    
+                    if (upRes.ok) {
+                        const { url } = await upRes.json();
+                        payload = { audioUrl: url };
+                    } else {
+                        const err = await upRes.json().catch(() => ({}));
+                        throw new Error(err.error || "Audio upload failed");
+                    }
+                } catch (e: any) {
+                    toast({
+                        title: "Upload Failed",
+                        description: e.message || "Could not upload audio. Please try again.",
+                        variant: "destructive",
+                    });
+                    setIsSubmitting(false);
+                    return;
                 }
             } else {
                 payload = { error: "No Audio Recorded" };

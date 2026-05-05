@@ -1,50 +1,39 @@
-import { db } from "@/lib/db/drizzle";
-import { pteQuestionTypes } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-import { notFound } from "next/navigation";
-import QuestionListTable from "@/components/pte/practice/QuestionListTable";
-import { getPracticeQuestions } from "@/lib/pte/practice";
-import { auth } from "@/lib/auth/auth";
-import { headers } from "next/headers";
+import { notFound } from 'next/navigation'
+import ReadingPracticeClient from '@/components/pte/reading/ReadingPracticeClient'
+import { db } from '@/lib/db/drizzle'
+import { pteQuestions } from '@/lib/db/schema/pte-questions'
+import { eq } from 'drizzle-orm'
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic'
 
-interface PageProps {
-  params: Promise<{
-    question: string;
-  }>;
+async function getQuestion(questionId: string) {
+  return db.query.pteQuestions.findFirst({
+    where: eq(pteQuestions.id, questionId),
+    with: {
+      questionType: true,
+      reading: true,
+    },
+  })
 }
 
-export default async function ReadingQuestionListPage({ params }: PageProps) {
-  const { question: questionTypeCode } = await params;
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+interface ReadingQuestionPageProps {
+  params: {
+    question: string
+  }
+}
 
-  // 1. Get the Question Type ID
-  const questionType = await db.query.pteQuestionTypes.findFirst({
-    where: eq(pteQuestionTypes.code, questionTypeCode as any),
-  });
+export default async function ReadingPracticeQuestionPage({ params }: ReadingQuestionPageProps) {
+  const question = await getQuestion(params.question)
 
-  if (!questionType) {
-    return notFound();
+  if (!question || !question.questionType || !question.reading) {
+    notFound()
   }
 
-  // 2. Get Questions for this type using helper
-  const questions = await getPracticeQuestions(
-    questionTypeCode,
-    1,
-    100, // Fetch all for list
-    session?.user?.id
-  );
-
   return (
-    <QuestionListTable
-      questionType={questionType}
-      questions={questions}
-      basePath={`/academic/practice/reading/${questionTypeCode}`}
-      backLink="/academic/practice/reading"
-      title="Back to Reading Practice"
-    />
-  );
+    <div className="bg-background min-h-screen">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <ReadingPracticeClient question={question} />
+      </div>
+    </div>
+  )
 }
