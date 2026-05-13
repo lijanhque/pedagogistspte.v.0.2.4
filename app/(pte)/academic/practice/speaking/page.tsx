@@ -8,6 +8,16 @@ import { Mic, Sparkles } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
+const SPEAKING_TYPE_CODES = new Set([
+  'read_aloud',
+  'repeat_sentence',
+  'describe_image',
+  'retell_lecture',
+  'answer_short_question',
+  'respond_to_situation',
+  'summarize_group_discussion',
+])
+
 async function getSpeakingQuestions() {
   const questions = await db.query.pteQuestions.findMany({
     where: eq(pteQuestions.isActive, true),
@@ -19,7 +29,7 @@ async function getSpeakingQuestions() {
   })
 
   return questions.filter(
-    (question) => question.questionType?.code?.startsWith('speaking') && question.speaking
+    (question) => question.questionType?.code && SPEAKING_TYPE_CODES.has(question.questionType.code) && question.speaking
   )
 }
 
