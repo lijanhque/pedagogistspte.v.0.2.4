@@ -8,6 +8,14 @@ import { BookOpen, Sparkles } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
+const READING_TYPE_CODES = new Set([
+  'reading_fill_blanks_dropdown',
+  'reading_mc_single',
+  'reading_mc_multiple',
+  'reorder_paragraphs',
+  'reading_fill_blanks_drag',
+])
+
 async function getReadingQuestions() {
   const questions = await db.query.pteQuestions.findMany({
     where: eq(pteQuestions.isActive, true),
@@ -19,7 +27,7 @@ async function getReadingQuestions() {
   })
 
   return questions.filter(
-    (question) => question.questionType?.code?.startsWith('reading') && question.reading
+    (question) => question.questionType?.code && READING_TYPE_CODES.has(question.questionType.code) && question.reading
   )
 }
 

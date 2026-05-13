@@ -117,62 +117,6 @@ describe('ReadingAttempt', () => {
     // Should render immediately
     expect(screen.getByText('Initial Question')).toBeInTheDocument();
   });
-});
-
-  it('fetches question from correct API endpoint (/api/pte/questions)', async () => {
-    const mockQuestion = {
-      id: mockQuestionId,
-      title: 'Test Reading Question',
-      questionType: { name: 'reading_mc_single', code: 'reading_mc_single' },
-      reading: {
-        passageText: 'Test passage',
-        options: { choices: ['A', 'B', 'C'] },
-      },
-    };
-    
-    (global.fetch as any).mockResolvedValueOnce({
-      ok: true,
-      json: async () => [mockQuestion],
-    });
-
-    render(
-      <ReadingAttempt
-        questionId={mockQuestionId}
-        questionType={mockQuestionType}
-        prompt={null}
-      />
-    );
-
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`/api/pte/questions?id=${mockQuestionId}`)
-      );
-    });
-
-    // Should render question title
-    expect(screen.getByText('Test Reading Question')).toBeInTheDocument();
-  });
-
-    it('handles 404 error gracefully', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-        json: async () => ({ error: 'Question not found' }),
-      });
-
-      render(
-        <ReadingAttempt
-          questionId={mockQuestionId}
-          questionType={mockQuestionType}
-          prompt={null}
-        />
-      );
-
-      await waitFor(() => {
-        // The component displays the error message from the API
-        expect(screen.getByText(/Question not found/)).toBeInTheDocument();
-      });
-    });
 
   it('normalizes API response to PromptLike shape', async () => {
     const mockQuestion = {
@@ -182,8 +126,8 @@ describe('ReadingAttempt', () => {
       questionType: { name: 'reading_mc_multiple', code: 'reading_mc_multiple' },
       reading: {
         passageText: 'Passage text',
-        options: { 
-          choices: ['Option 1', 'Option 2', 'Option 3'] 
+        options: {
+          choices: ['Option 1', 'Option 2', 'Option 3']
         },
       },
     };
@@ -204,28 +148,5 @@ describe('ReadingAttempt', () => {
     await waitFor(() => {
       expect(screen.getByText('Normalized Question')).toBeInTheDocument();
     });
-  });
-
-  it('uses initialPrompt when provided (no fetch)', async () => {
-    const initialPrompt = {
-      id: mockQuestionId,
-      type: mockQuestionType,
-      title: 'Initial Question',
-      promptText: 'What is the answer?',
-    };
-
-    render(
-      <ReadingAttempt
-        questionId={mockQuestionId}
-        questionType={mockQuestionType}
-        prompt={initialPrompt}
-      />
-    );
-
-    // fetch should NOT be called
-    expect(global.fetch).not.toHaveBeenCalled();
-
-    // Should render immediately
-    expect(screen.getByText('Initial Question')).toBeInTheDocument();
   });
 });

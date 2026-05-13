@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation'
+import { SpeakingPracticeClient } from '@/components/pte/speaking/speaking-client'
 import { db } from '@/lib/db/drizzle'
 import { pteQuestions } from '@/lib/db/schema/pte-questions'
 import { eq } from 'drizzle-orm'
+import type { SpeakingQuestion } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,15 +30,10 @@ export default async function SpeakingPracticeQuestionPage({ params }: SpeakingQ
     notFound()
   }
 
-  // For speaking, we'll render a basic placeholder that can be enhanced
   return (
     <div className="bg-background min-h-screen">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-          <h1 className="text-2xl font-bold text-slate-900">{question.title}</h1>
-          <p className="mt-4 text-slate-600">Speaking practice for: {question.questionType.name}</p>
-          <p className="mt-2 text-sm text-slate-500">Question ID: {question.id}</p>
-        </div>
+        <SpeakingPracticeClient question={question as SpeakingQuestion} />
       </div>
     </div>
   )
