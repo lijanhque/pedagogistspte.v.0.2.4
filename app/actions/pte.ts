@@ -11,6 +11,28 @@ import { headers } from 'next/headers';
 import { db } from '@/lib/db/drizzle';
 import { eq, sql } from 'drizzle-orm';
 import { users } from '@/lib/db/schema';
+import { speakingRatelimit, dailyScoringRatelimit } from '@/lib/ratelimit';
+
+/**
+ * Check speaking-specific rate limits (per-minute and daily).
+ * Returns an error message if rate limited, or null if allowed.
+ */
+async function checkSpeakingRateLimit(userId: string): Promise<string | null> {
+  if (speakingRatelimit) {
+    const { success, reset } = await speakingRatelimit.limit(userId);
+    if (!success) {
+      const waitSec = Math.ceil((reset - Date.now()) / 1000);
+      return `Too many scoring requests. Please wait ${waitSec}s before trying again.`;
+    }
+  }
+  if (dailyScoringRatelimit) {
+    const { success } = await dailyScoringRatelimit.limit(userId);
+    if (!success) {
+      return 'Daily scoring limit reached. Please try again tomorrow or upgrade your plan.';
+    }
+  }
+  return null;
+}
 
 /**
  * Check and decrement user credits
@@ -123,6 +145,12 @@ export async function scoreReadAloudAttempt(
       return { success: false, error: 'Unauthorized' };
     }
 
+    // Check rate limits
+    const rateLimitError = await checkSpeakingRateLimit(session.user.id);
+    if (rateLimitError) {
+      return { success: false, error: rateLimitError };
+    }
+
     // Check credits
     await checkAndUseCredits(session.user.id);
 
@@ -188,6 +216,12 @@ export async function scoreSpeakingAttempt(
 
     if (!session?.user) {
       return { success: false, error: 'Unauthorized' };
+    }
+
+    // Check rate limits
+    const rateLimitError = await checkSpeakingRateLimit(session.user.id);
+    if (rateLimitError) {
+      return { success: false, error: rateLimitError };
     }
 
     // Check credits

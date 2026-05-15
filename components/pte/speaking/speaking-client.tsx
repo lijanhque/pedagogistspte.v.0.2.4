@@ -61,10 +61,70 @@ function toScoreResult(f: SpeakingFeedbackData): ScoreResult {
 }
 
 function getTimings(questionType: string) {
-  return questionType === QuestionType.READ_ALOUD ||
-    questionType === "read_aloud"
-    ? { prep: 35, record: 40 }
-    : { prep: 10, record: 40 };
+  const type = questionType.toLowerCase().replace(/-/g, "_");
+
+  if (type === QuestionType.READ_ALOUD || type === "read_aloud") {
+    return { prep: 35, record: 40 };
+  }
+  if (type === QuestionType.REPEAT_SENTENCE || type === "repeat_sentence") {
+    return { prep: 3, record: 15 };
+  }
+  if (type === QuestionType.DESCRIBE_IMAGE || type === "describe_image") {
+    return { prep: 25, record: 40 };
+  }
+  if (type === QuestionType.RE_TELL_LECTURE || type === "retell_lecture") {
+    return { prep: 10, record: 40 };
+  }
+  if (type === QuestionType.ANSWER_SHORT_QUESTION || type === "answer_short_question") {
+    return { prep: 3, record: 10 };
+  }
+  if (type === QuestionType.RESPOND_TO_A_SITUATION || type === "respond_to_situation") {
+    return { prep: 20, record: 40 };
+  }
+  if (type === QuestionType.SUMMARIZE_GROUP_DISCUSSION || type === "summarize_group_discussion") {
+    return { prep: 10, record: 120 };
+  }
+  return { prep: 10, record: 40 };
+}
+
+function getQuestionInstruction(questionType: string): string {
+  const type = questionType.toLowerCase().replace(/-/g, "_");
+
+  if (type === QuestionType.READ_ALOUD || type === "read_aloud") {
+    return "Look at the text below. In the preparation time, read it silently. After the beep, read it aloud. You will not be able to go back.";
+  }
+  if (type === QuestionType.REPEAT_SENTENCE || type === "repeat_sentence") {
+    return "You will hear a sentence. After listening, repeat the sentence exactly as you heard it.";
+  }
+  if (type === QuestionType.DESCRIBE_IMAGE || type === "describe_image") {
+    return "Look at the image below. Describe in detail what the image is showing. You will have 25 seconds to study the image and 40 seconds to give your response.";
+  }
+  if (type === QuestionType.RE_TELL_LECTURE || type === "retell_lecture") {
+    return "You will hear a lecture. After listening, re-tell the lecture in your own words. You will have 10 seconds to prepare and 40 seconds to give your response.";
+  }
+  if (type === QuestionType.ANSWER_SHORT_QUESTION || type === "answer_short_question") {
+    return "You will hear a question. Give a short answer in one or a few words.";
+  }
+  if (type === QuestionType.RESPOND_TO_A_SITUATION || type === "respond_to_situation") {
+    return "Listen to or read the situation described. Respond appropriately in a natural, conversational way.";
+  }
+  if (type === QuestionType.SUMMARIZE_GROUP_DISCUSSION || type === "summarize_group_discussion") {
+    return "You will hear a discussion between several speakers. Summarize the main points of the discussion in your own words.";
+  }
+  return "Listen to the prompt and give your response.";
+}
+
+function getQuestionTypeLabel(questionType: string): string {
+  const type = questionType.toLowerCase().replace(/-/g, "_");
+
+  if (type === "read_aloud") return "Read Aloud";
+  if (type === "repeat_sentence") return "Repeat Sentence";
+  if (type === "describe_image") return "Describe Image";
+  if (type === "retell_lecture") return "Re-tell Lecture";
+  if (type === "answer_short_question") return "Answer Short Question";
+  if (type === "respond_to_situation") return "Respond to a Situation";
+  if (type === "summarize_group_discussion") return "Summarize Group Discussion";
+  return "Speaking";
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -80,7 +140,7 @@ export function SpeakingPracticeClient({
     (question.questionTypeId as QuestionType);
   const content = question.content ?? "";
   const timings = getTimings(questionType);
-  const recordDuration = question.questionType?.timeLimit ?? timings.record;
+  const recordDuration = timings.record;
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [status, setStatus] = useState<Status>("idle");
@@ -272,8 +332,40 @@ export function SpeakingPracticeClient({
   const recordProgress = ((recordDuration - recordTime) / recordDuration) * 100;
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  const instruction = getQuestionInstruction(questionType);
+  const typeLabel = getQuestionTypeLabel(questionType);
+
   return (
     <div className="space-y-6">
+      {/* Question type header */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-700">
+            {typeLabel}
+          </span>
+        </div>
+        <p className="text-sm text-muted-foreground">{instruction}</p>
+      </div>
+
+      {/* Question content */}
+      {content && (
+        <div className="rounded-xl border bg-card p-4 text-card-foreground shadow-sm">
+          <p className="text-base leading-relaxed">{content}</p>
+        </div>
+      )}
+
+      {/* Question image (for Describe Image) */}
+      {question.imageUrl && (
+        <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={question.imageUrl}
+            alt="Question image"
+            className="w-full max-h-80 object-contain"
+          />
+        </div>
+      )}
+
       {/* Error banner */}
       {submitError && (
         <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-lg border border-destructive/20">

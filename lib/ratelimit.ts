@@ -20,3 +20,25 @@ export const strictRatelimit: Ratelimit | null = redis
           prefix: "@upstash/strict-ratelimit",
       })
     : null;
+
+// Speaking scoring rate limiter — allows 5 scoring requests per 60 seconds per user.
+// This prevents abuse of AI credits while allowing reasonable practice sessions.
+export const speakingRatelimit: Ratelimit | null = redis
+    ? new Ratelimit({
+          redis,
+          limiter: Ratelimit.slidingWindow(5, "60 s"),
+          analytics: true,
+          prefix: "@upstash/speaking-ratelimit",
+      })
+    : null;
+
+// Daily scoring limiter — max 30 scoring attempts per day per user (resets every 24h).
+// Free tier users are additionally capped by their AI credits.
+export const dailyScoringRatelimit: Ratelimit | null = redis
+    ? new Ratelimit({
+          redis,
+          limiter: Ratelimit.fixedWindow(30, "86400 s"),
+          analytics: true,
+          prefix: "@upstash/daily-scoring-ratelimit",
+      })
+    : null;
