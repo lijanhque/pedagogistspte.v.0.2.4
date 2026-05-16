@@ -1,93 +1,92 @@
-export const dynamic = 'force-dynamic';
+import { AcademicPracticeHeader } from '@/components/pte/practice-header'
+import QuestionListTable from '@/components/pte/practice/QuestionListTable'
+import { db } from '@/lib/db/drizzle'
+import { pteQuestions } from '@/lib/db/schema/pte-questions'
+import { eq } from 'drizzle-orm'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { PenSquare, Sparkles } from 'lucide-react'
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
-import { ArrowRight, Clock, PenTool } from "lucide-react";
-import { getPteQuestionCounts } from "@/lib/db/queries/metrics";
+export const dynamic = 'force-dynamic'
 
-const writingTypes = [
-  {
-    id: "summarize_written_text",
-    name: "Summarize Written Text",
-    description: "Read a passage and write a one-sentence summary (5-75 words)",
-    time: "10 min",
-    aiScored: true,
-  },
-  {
-    id: "write_essay",
-    name: "Write Essay",
-    description: "Write an essay of 200-300 words on a given topic",
-    time: "20 min",
-    aiScored: true,
-  },
-];
+async function getWritingQuestions() {
+  const questions = await db.query.pteQuestions.findMany({
+    where: eq(pteQuestions.isActive, true),
+    with: {
+      questionType: true,
+      writing: true,
+    },
+    limit: 20,
+  })
+
+  return questions.filter(
+    (question) => question.questionType?.code?.startsWith('writing') && question.writing
+  )
+}
 
 export default async function WritingPracticePage() {
-  const counts = await getPteQuestionCounts();
+  const questions = await getWritingQuestions()
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
-      {/* Header */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-lg bg-green-100 dark:bg-green-950">
-            <PenTool className="h-6 w-6 text-green-600" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Writing Practice
-            </h1>
-            <p className="text-muted-foreground">
-              Master both writing question types for PTE Academic
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="bg-background min-h-screen">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <AcademicPracticeHeader section="writing" showFilters={false} />
 
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/academic/practice" className="hover:text-primary">
-          Practice
-        </Link>
-        <span>/</span>
-        <span className="text-foreground font-medium">Writing</span>
-      </nav>
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1.8fr_1fr]">
+          <div className="space-y-6">
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center gap-3 text-slate-700">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                  <PenSquare className="h-6 w-6" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.24em] text-amber-600">Writing Practice</p>
+                  <h1 className="mt-2 text-3xl font-bold text-slate-900">Enhance your writing ability</h1>
+                </div>
+              </div>
+              <p className="mt-6 text-sm leading-6 text-slate-600">
+                Practice PTE writing formats with AI-powered feedback. Master Summarize Written Text, Essay writing, and other writing tasks with detailed scoring.
+              </p>
+            </section>
 
-      {/* Question Types */}
-      <div className="grid gap-4">
-        {writingTypes.map((type) => (
-          <Link key={type.id} href={`/academic/practice/writing/${type.id}`}>
-            <Card className="hover:shadow-md transition-all cursor-pointer hover:border-primary/50">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-lg">{type.name}</h3>
-                      {type.aiScored && (
-                        <Badge variant="secondary" className="text-xs">
-                          AI Scored
-                        </Badge>
-                      )}
+            <QuestionListTable
+              questionType={{
+                name: 'Writing Practice',
+                description: 'Select a question to practice writing tasks with AI feedback.',
+                timeLimit: 20 * 60,
+              }}
+              questions={questions}
+              basePath="/academic/practice/writing"
+              backLink="/academic/practice"
+              title="Back to practice hub"
+            />
+          </div>
+
+          <aside className="space-y-6">
+            <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold">Writing Tips</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm text-slate-600">
+                <p>Focus on grammar, vocabulary, and structure. Meet word count requirements and organize your ideas logically.</p>
+                <div className="space-y-3">
+                  {[
+                    'Check grammar and spelling carefully.',
+                    'Use formal, academic language.',
+                    'Organize with clear topic and supporting sentences.',
+                  ].map((tip) => (
+                    <div key={tip} className="rounded-2xl bg-amber-50 p-3">
+                      <div className="flex items-start gap-2">
+                        <Sparkles className="mt-0.5 h-4 w-4 text-amber-600" />
+                        <p>{tip}</p>
+                      </div>
                     </div>
-                    <p className="text-muted-foreground text-sm mb-2">
-                      {type.description}
-                    </p>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {type.time}
-                      </span>
-                      <span>{counts[type.id] || 0} questions available</span>
-                    </div>
-                  </div>
-                  <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                  ))}
                 </div>
               </CardContent>
             </Card>
-          </Link>
-        ))}
+          </aside>
+        </div>
       </div>
     </div>
-  );
+  )
 }

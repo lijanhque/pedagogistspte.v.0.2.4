@@ -1,155 +1,102 @@
-export const dynamic = 'force-dynamic';
+import { AcademicPracticeHeader } from '@/components/pte/practice-header'
+import QuestionListTable from '@/components/pte/practice/QuestionListTable'
+import { db } from '@/lib/db/drizzle'
+import { pteQuestions } from '@/lib/db/schema/pte-questions'
+import { eq } from 'drizzle-orm'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Mic, Sparkles } from 'lucide-react'
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
-import { ArrowRight, Clock, Mic, Sparkles } from "lucide-react";
-import { getPteQuestionCounts } from "@/lib/db/queries/metrics";
+export const dynamic = 'force-dynamic'
 
-const speakingTypes = [
-  {
-    id: "read_aloud",
-    name: "Read Aloud",
-    description: "Read a text aloud with correct pronunciation and fluency",
-    time: "30-35 sec",
-    aiScored: true,
-    isHighValue: true,
-  },
-  {
-    id: "repeat_sentence",
-    name: "Repeat Sentence",
-    description: "Listen and repeat the sentence exactly as you hear it",
-    time: "15 sec",
-    aiScored: true,
-    isHighValue: true,
-  },
-  {
-    id: "describe_image",
-    name: "Describe Image",
-    description: "Describe what you see in the image in detail",
-    time: "40 sec",
-    aiScored: true,
-  },
-  {
-    id: "retell_lecture",
-    name: "Re-tell Lecture",
-    description: "Listen to a lecture and retell it in your own words",
-    time: "40 sec",
-    aiScored: true,
-  },
-  {
-    id: "answer_short_question",
-    name: "Answer Short Question",
-    description: "Answer a question with a single word or short phrase",
-    time: "10 sec",
-    aiScored: true,
-  },
-  {
-    id: "respond_to_situation",
-    name: "Respond to a Situation",
-    description: "Respond appropriately to a given situation (Core)",
-    time: "40 sec",
-    aiScored: true,
-    isCore: true,
-  },
-  {
-    id: "summarize_group_discussion",
-    name: "Summarize Group Discussion",
-    description: "Listen to a discussion and summarize main points (Core)",
-    time: "40 sec",
-    aiScored: true,
-    isCore: true,
-  },
-];
+const SPEAKING_TYPE_CODES = new Set([
+  'read_aloud',
+  'repeat_sentence',
+  'describe_image',
+  'retell_lecture',
+  'answer_short_question',
+  'respond_to_situation',
+  'summarize_group_discussion',
+])
+
+async function getSpeakingQuestions() {
+  const questions = await db.query.pteQuestions.findMany({
+    where: eq(pteQuestions.isActive, true),
+    with: {
+      questionType: true,
+      speaking: true,
+    },
+    limit: 20,
+  })
+
+  return questions.filter(
+    (question) => question.questionType?.code && SPEAKING_TYPE_CODES.has(question.questionType.code) && question.speaking
+  )
+}
 
 export default async function SpeakingPracticePage() {
-  const counts = await getPteQuestionCounts();
+  const questions = await getSpeakingQuestions()
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
-      {/* Header */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-lg bg-blue-100 dark:bg-blue-950">
-            <Mic className="h-6 w-6 text-blue-600" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Speaking Practice
-            </h1>
-            <p className="text-muted-foreground">
-              Master all 7 speaking question types with real-time AI feedback
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="bg-background min-h-screen">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <AcademicPracticeHeader section="speaking" showFilters={false} />
 
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/academic/practice" className="hover:text-primary">
-          Practice
-        </Link>
-        <span>/</span>
-        <span className="text-foreground font-medium">Speaking</span>
-      </nav>
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1.8fr_1fr]">
+          <div className="space-y-6">
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center gap-3 text-slate-700">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
+                  <Mic className="h-6 w-6" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-600">Speaking Practice</p>
+                  <h1 className="mt-2 text-3xl font-bold text-slate-900">Master your speaking skills</h1>
+                </div>
+              </div>
+              <p className="mt-6 text-sm leading-6 text-slate-600">
+                Practice PTE speaking formats with AI-powered scoring and real-time feedback. Master Read Aloud, Repeat Sentence, Describe Image, Retell Lecture, and more.
+              </p>
+            </section>
 
-      {/* Question Types */}
-      <div className="grid gap-4">
-        {speakingTypes.map((type) => (
-          <Link key={type.id} href={`/academic/practice/speaking/${type.id}`}>
-            <Card
-              className={`hover:shadow-md transition-all cursor-pointer hover:border-primary/50 group ${
-                type.isHighValue
-                  ? "border-blue-200 dark:border-blue-900 bg-blue-50/30 dark:bg-blue-950/20"
-                  : ""
-              }`}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-lg group-hover:text-blue-600 transition-colors">
-                        {type.name}
-                      </h3>
-                      {type.aiScored && (
-                        <Badge variant="secondary" className="text-xs">
-                          AI Scored
-                        </Badge>
-                      )}
-                      {type.isHighValue && (
-                        <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 hover:bg-blue-200 border-0 text-xs gap-1">
-                          <Sparkles className="size-3" /> High Value
-                        </Badge>
-                      )}
-                      {type.isCore && (
-                        <Badge
-                          variant="outline"
-                          className="text-xs border-gray-300 text-gray-500"
-                        >
-                          Core
-                        </Badge>
-                      )}
+            <QuestionListTable
+              questionType={{
+                name: 'Speaking Practice',
+                description: 'Select a question to practice speaking tasks with instant AI feedback.',
+                timeLimit: 5 * 60,
+              }}
+              questions={questions}
+              basePath="/academic/practice/speaking"
+              backLink="/academic/practice"
+              title="Back to practice hub"
+            />
+          </div>
+
+          <aside className="space-y-6">
+            <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold">Speaking Tips</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm text-slate-600">
+                <p>Focus on clear pronunciation, natural fluency, and appropriate pacing. Avoid long pauses and filler words.</p>
+                <div className="space-y-3">
+                  {[
+                    'Speak clearly and at a natural pace.',
+                    'Listen carefully to the prompt or audio.',
+                    'Use varied vocabulary and sentence structures.',
+                  ].map((tip) => (
+                    <div key={tip} className="rounded-2xl bg-sky-50 p-3">
+                      <div className="flex items-start gap-2">
+                        <Sparkles className="mt-0.5 h-4 w-4 text-sky-600" />
+                        <p>{tip}</p>
+                      </div>
                     </div>
-                    <p className="text-muted-foreground text-sm mb-2 max-w-xl">
-                      {type.description}
-                    </p>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {type.time}
-                      </span>
-                      <span>{counts[type.id] || 0} questions available</span>
-                    </div>
-                  </div>
-                  <div className="size-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
-                    <ArrowRight className="h-4 w-4" />
-                  </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
-          </Link>
-        ))}
+          </aside>
+        </div>
       </div>
     </div>
-  );
+  )
 }

@@ -1,6 +1,6 @@
 {
-  "id": "b3441e09-c406-40cd-a834-63ccc312d8c1",
-  "prevId": "71adf3c6-48a9-43ec-aa9f-2b630bc26bce",
+  "id": "e4c071b2-2dac-487a-838d-063a374d8a66",
+  "prevId": "b3441e09-c406-40cd-a834-63ccc312d8c1",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -249,6 +249,19 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'user'"
+        },
+        "banned": {
+          "name": "banned",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "ban_reason": {
+          "name": "ban_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "subscription_tier": {
           "name": "subscription_tier",

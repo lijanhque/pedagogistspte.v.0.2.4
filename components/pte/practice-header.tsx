@@ -39,13 +39,15 @@ export function AcademicPracticeHeader({
   const pathSegments = pathname.split('/').filter(Boolean)
   const isQuestionType = pathSegments.length >= 5
 
+  const practiceBase = '/academic/practice'
+
   return (
     <div className="border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-950">
       <div className="flex flex-col space-y-4">
         {/* Breadcrumb Navigation */}
         <nav className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
           <Link
-            href="/pte/practice"
+            href={practiceBase}
             className="flex items-center gap-1 hover:text-blue-600"
           >
             <Home className="h-4 w-4" />
@@ -55,7 +57,7 @@ export function AcademicPracticeHeader({
             <>
               <ChevronRight className="h-4 w-4" />
               <Link
-                href={`/pte/practice/${section}`}
+                href={`${practiceBase}/${section}`}
                 className="hover:text-blue-600"
               >
                 {formatSectionName(section)}

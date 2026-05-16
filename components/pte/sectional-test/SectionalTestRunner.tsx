@@ -168,21 +168,32 @@ export default function SectionalTestRunner({
         if (isSpeaking && recorderAudioBlob) {
             try {
                 setLoadingAudio(true);
+                // Upload audio immediately
                 const formData = new FormData();
-                formData.append("file", recorderAudioBlob, "recording.webm");
-
+                formData.append("file", recorderAudioBlob, `speaking-${currentQuestion.id}.webm`);
+                
                 const upRes = await fetch("/api/upload/audio", {
                     method: "POST",
                     body: formData,
                 });
-                if (upRes.ok) {
-                    const { url } = await upRes.json();
-                    answerPayload = { audioUrl: url };
-                } else {
-                    answerPayload = { error: "Audio Upload Failed" };
+                
+                if (!upRes.ok) {
+                    const errBody = await upRes.json().catch(() => ({}));
+                    throw new Error(errBody.error || "Audio upload failed");
                 }
-            } catch (e) {
-                console.error("Audio upload error", e);
+                
+                const { url } = await upRes.json();
+                if (!url) throw new Error("No URL received from upload");
+                answerPayload = { audioUrl: url };
+            } catch (e: any) {
+                toast({
+                    title: "Audio Upload Failed",
+                    description: e.message || "Could not upload audio. Please try again.",
+                    variant: "destructive",
+                });
+                setLoadingAudio(false);
+                setIsSubmitting(false);
+                return; // Early return - don't submit without audio
             } finally {
                 setLoadingAudio(false);
             }

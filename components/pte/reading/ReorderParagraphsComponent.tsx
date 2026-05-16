@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react'
-import { Reorder, useDragControls } from 'framer-motion'
-import { GripVertical } from 'lucide-react'
+import { Reorder } from 'framer-motion'
+import { GripVertical, MoveVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ReorderParagraphsProps {
     paragraphs: string[]
-    value: string[] | null // Array of paragraph strings in their new order
+    value: string[] | null
     onChange: (val: string[]) => void
 }
 
@@ -14,15 +14,13 @@ export default function ReorderParagraphs({
     value,
     onChange,
 }: ReorderParagraphsProps) {
-    // We need to manage local state for the Reorder component
     const [items, setItems] = useState<{ id: string; text: string }[]>([])
+    const [draggedId, setDraggedId] = useState<string | null>(null)
 
     useEffect(() => {
         if (paragraphs.length === 0) return
 
         if (value && value.length === paragraphs.length) {
-            // Reconstruct items from value using stable index-based IDs.
-            // Track which original indices have been consumed to handle duplicate text.
             const availableIndices = new Map<string, number[]>()
             paragraphs.forEach((text, i) => {
                 if (!availableIndices.has(text)) availableIndices.set(text, [])
@@ -36,21 +34,19 @@ export default function ReorderParagraphs({
                 return { id: `para-${idx}`, text }
             })
 
-            // Only update if the order actually changed to avoid infinite re-renders
             setItems((prev) => {
                 const prevOrder = prev.map((it) => it.id).join(',')
                 const nextOrder = newItems.map((it) => it.id).join(',')
                 return prevOrder === nextOrder ? prev : newItems
             })
         } else {
-            // Initialize with default order from props using index-based IDs
             const initialItems = paragraphs.map((text, i) => ({
                 id: `para-${i}`,
                 text,
             }))
             setItems(initialItems)
         }
-    }, [paragraphs, value]) // Keep value in deps so external resets (e.g. "Clear" button) are respected
+    }, [paragraphs, value])
 
     const handleReorder = (newOrder: { id: string; text: string }[]) => {
         setItems(newOrder)
@@ -58,41 +54,53 @@ export default function ReorderParagraphs({
     }
 
     if (paragraphs.length === 0) {
-        return <div>No paragraphs to reorder.</div>
+        return <div className="text-muted-foreground p-4">No paragraphs to reorder.</div>
     }
+
+    const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
     return (
         <div className="space-y-4">
-            <div className="text-sm text-muted-foreground mb-4">
-                Drag and drop the paragraphs to reorder them into a coherent text.
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                <MoveVertical className="h-4 w-4" />
+                <span>Drag and drop the paragraphs to form a coherent passage.</span>
             </div>
 
-            <div className="flex gap-4">
-                {/* Source / Target split is common in PTE reorder, but simple vertical list is also acceptable for practice.
-            PTE usually has "Source" on left and "Target" on right.
-            For simplicity in this mobile-friendly responsive design, we'll use a single vertically sortable list. 
-            If exact PTE replication is needed, we'd need two lists. We'll stick to single list for now for better UX on smaller screens.
-        */}
-
-                <Reorder.Group
-                    axis="y"
-                    values={items}
-                    onReorder={handleReorder}
-                    className="w-full space-y-3"
-                >
-                    {items.map((item) => (
-                        <Reorder.Item
-                            key={item.id}
-                            value={item}
-                            className="bg-card border rounded-md p-3 shadow-sm cursor-grab active:cursor-grabbing flex items-start gap-3 select-none"
-                        >
-                            <div className="mt-1 text-muted-foreground">
-                                <GripVertical className="h-5 w-5" />
+            <Reorder.Group
+                axis="y"
+                values={items}
+                onReorder={handleReorder}
+                className="w-full space-y-2.5"
+            >
+                {items.map((item, index) => (
+                    <Reorder.Item
+                        key={item.id}
+                        value={item}
+                        onDragStart={() => setDraggedId(item.id)}
+                        onDragEnd={() => setDraggedId(null)}
+                        className={cn(
+                            'bg-card border-2 rounded-lg p-4 cursor-grab active:cursor-grabbing',
+                            'flex items-start gap-3 select-none',
+                            'transition-shadow duration-200',
+                            'hover:shadow-md hover:border-primary/30',
+                            draggedId === item.id
+                                ? 'shadow-lg border-primary/50 bg-primary/5 scale-[1.02]'
+                                : 'shadow-sm'
+                        )}
+                    >
+                        <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                            <GripVertical className="h-5 w-5 text-muted-foreground/50" />
+                            <div className="flex items-center justify-center w-7 h-7 rounded-md bg-muted text-xs font-bold text-muted-foreground">
+                                {letters[index]}
                             </div>
-                            <p className="text-sm leading-relaxed">{item.text}</p>
-                        </Reorder.Item>
-                    ))}
-                </Reorder.Group>
+                        </div>
+                        <p className="text-sm leading-relaxed flex-1">{item.text}</p>
+                    </Reorder.Item>
+                ))}
+            </Reorder.Group>
+
+            <div className="text-xs text-muted-foreground text-right">
+                {items.length} paragraphs to order
             </div>
         </div>
     )

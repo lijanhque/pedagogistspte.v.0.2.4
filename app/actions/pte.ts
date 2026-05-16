@@ -240,6 +240,99 @@ export async function scoreSpeakingAttempt(
 }
 
 /**
+ * Server action to upload speaking audio to Vercel Blob (upload-only, no scoring).
+ * Returns the public blob URL for later scoring.
+ */
+export async function uploadSpeakingAudio(
+  audioFile: File,
+  questionId: string,
+  questionType: string
+): Promise<{ success: boolean; audioUrl?: string; error?: string }> {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+
+    if (!session?.user) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    const blob = await put(
+      `pte/speaking/${questionType.toLowerCase().replace(/\s+/g, '-')}/${questionId}/${Date.now()}-${audioFile.name}`,
+      audioFile,
+      { access: 'public' }
+    );
+
+    return { success: true, audioUrl: blob.url };
+  } catch (error) {
+    console.error('Error uploading speaking audio:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Upload failed',
+    };
+  }
+}
+
+/**
+ * Server action to score a speaking attempt from an already-uploaded audio URL.
+ * Separates scoring from upload for the multi-step speaking flow.
+ */
+export async function scoreSpeakingFromUrl(
+  type: QuestionType,
+  audioUrl: string,
+  questionContent: string,
+  questionId: string
+): Promise<{ success: boolean; feedback?: SpeakingFeedbackData; error?: string; attemptId?: string; attemptNumber?: number }> {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+
+    if (!session?.user) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    // Check credits
+    await checkAndUseCredits(session.user.id);
+
+    // Score using Gemini V2
+    const feedback = await scorePteAttemptV2(type, {
+      questionContent,
+      submission: { audioUrl },
+      userId: session.user.id,
+      questionId,
+    });
+
+    // Save to database
+    const attempt = await savePteAttempt({
+      userId: session.user.id,
+      questionId,
+      questionType: type,
+      responseAudioUrl: audioUrl,
+      aiFeedback: feedback,
+    });
+
+    // Track usage
+    await trackAIUsage({
+      userId: session.user.id,
+      attemptId: attempt.id,
+      provider: 'google',
+      model: 'gemini-2.5-flash',
+      totalTokens: 0,
+      cost: 0,
+    });
+
+    return { success: true, feedback, attemptId: attempt.id, attemptNumber: attempt.attemptNumber };
+  } catch (error) {
+    console.error(`Error scoring ${type} from URL:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'An unknown error occurred.',
+    };
+  }
+}
+
+/**
  * Helper function to build deterministic answer structure from position indices
  */
 function buildDeterministicAnswer(
@@ -253,9 +346,50 @@ function buildDeterministicAnswer(
   correctOrder?: string[];
   correctBlanks?: Record<string, string>;
 } {
-  // If answerKey is already an object (for fill blanks), return it directly
-  if (typeof answerKey === 'object' && !Array.isArray(answerKey)) {
-    return { correctBlanks: answerKey };
+  // If answerKey is an object with a blanks property (FIB correct answer from base table)
+  if (typeof answerKey === 'object' && !Array.isArray(answerKey) && answerKey?.blanks) {
+    // blanks can be {"1": "word", "2": "word"} or {"0": "word", ...}
+    const blanks = answerKey.blanks;
+    if (typeof blanks === 'object' && !Array.isArray(blanks)) {
+      // Normalize keys to be 0-indexed strings
+      const correctBlanks: Record<string, string> = {};
+      const keys = Object.keys(blanks).sort((a, b) => Number(a) - Number(b));
+      keys.forEach((key, idx) => {
+        correctBlanks[idx.toString()] = blanks[key];
+      });
+      return { correctBlanks };
+    }
+  }
+
+  // If answerKey has options array (FIB Drag & Drop: { options: ["word1", "word2", ...] })
+  if (typeof answerKey === 'object' && !Array.isArray(answerKey) && answerKey?.options && Array.isArray(answerKey.options)) {
+    const correctBlanks: Record<string, string> = {};
+    answerKey.options.forEach((word: string, idx: number) => {
+      correctBlanks[idx.toString()] = word;
+    });
+    return { correctBlanks };
+  }
+
+  // If answerKey has order array (Reorder Paragraphs: { order: [0, 2, 1, 3] })
+  if (typeof answerKey === 'object' && !Array.isArray(answerKey) && answerKey?.order && Array.isArray(answerKey.order)) {
+    return {
+      correctOrder: answerKey.order.map((idx: number) => paragraphs?.[idx] || '').filter(Boolean)
+    };
+  }
+
+  // If answerKey is already a flat object (for fill blanks — direct key-value map)
+  if (
+    typeof answerKey === 'object' &&
+    !Array.isArray(answerKey) &&
+    !answerKey?.blanks &&
+    !answerKey?.options &&
+    !answerKey?.order
+  ) {
+    // Check if it looks like a blanks map (string values)
+    const values = Object.values(answerKey);
+    if (values.length > 0 && values.every(v => typeof v === 'string')) {
+      return { correctBlanks: answerKey };
+    }
   }
 
   // If answerKey is an array of positions
@@ -275,6 +409,14 @@ function buildDeterministicAnswer(
         return {
           correctOrder: answerKey.map((idx: number) => paragraphs?.[idx] || '').filter(Boolean)
         };
+
+      // FIB types with correctAnswerPositions — shouldn't normally reach here
+      // since we pass correctAnswer.blanks for FIB, but handle as fallback
+      case QuestionType.READING_BLANKS:
+      case QuestionType.READING_WRITING_BLANKS:
+        // Cannot reconstruct blanks from positions without the blanks options data
+        // Return empty — the caller should pass the correct answer object instead
+        return {};
 
       default:
         return {};

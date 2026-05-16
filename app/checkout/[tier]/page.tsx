@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Check, CreditCard, Loader2 } from 'lucide-react'
 import { TIER_PRICING, TIER_FEATURES_DISPLAY, SubscriptionTier } from '@/lib/subscription/tiers'
+import { toast } from '@/hooks/use-toast'
 
 interface CheckoutPageProps {
   params: Promise<{
@@ -42,6 +43,11 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
     setIsLoading(true)
     setSelectedProvider(provider)
 
+    toast({
+      title: "Creating checkout...",
+      description: "Redirecting you to the payment page.",
+    })
+
     try {
       const response = await fetch('/api/checkout/polar', {
         method: 'POST',
@@ -55,10 +61,19 @@ export default function CheckoutPage({ params }: CheckoutPageProps) {
       }
 
       const { url } = await response.json()
+
+      if (!url) {
+        throw new Error('No checkout URL received. Please check your payment configuration.')
+      }
+
       window.location.href = url
-    } catch (error) {
+    } catch (error: any) {
       console.error('Checkout error:', error)
-      alert('Failed to start checkout. Please try again.')
+      toast({
+        title: "Checkout failed",
+        description: error?.message || 'Failed to start checkout. Please try again.',
+        variant: "destructive"
+      })
       setIsLoading(false)
       setSelectedProvider(null)
     }

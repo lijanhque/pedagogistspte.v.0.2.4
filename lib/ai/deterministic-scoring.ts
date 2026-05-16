@@ -280,6 +280,7 @@ export function toAIFeedbackData(
 
   return {
     overallScore: result.score,
+    maxScore: result.total,
     content: {
       score: result.score,
       feedback: result.feedback,
